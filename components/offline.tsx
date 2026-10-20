@@ -8,31 +8,14 @@ export function useOffline() {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
-    let cancel = false;
-    const ping = () => {
-      if (!navigator.onLine) {
-        setOffline(true);
-        return;
-      }
-      const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), 2500);
-      fetch("/api/health", { signal: controller.signal })
-        .then((response) => {
-          if (!cancel) setOffline(!response.ok);
-        })
-        .catch(() => {
-          if (!cancel) setOffline(true);
-        })
-        .finally(() => window.clearTimeout(timer));
-    };
-    ping();
-    const on = () => setOffline(true);
-    window.addEventListener("offline", on);
-    window.addEventListener("online", ping);
+    const online = () => setOffline(false);
+    const offlineNow = () => setOffline(true);
+    setOffline(!navigator.onLine);
+    window.addEventListener("offline", offlineNow);
+    window.addEventListener("online", online);
     return () => {
-      cancel = true;
-      window.removeEventListener("offline", on);
-      window.removeEventListener("online", ping);
+      window.removeEventListener("offline", offlineNow);
+      window.removeEventListener("online", online);
     };
   }, []);
 

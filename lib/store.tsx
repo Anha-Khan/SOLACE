@@ -5,12 +5,10 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { addDays, todayISO, uid } from "./dates";
-import { omitDiary } from "./diary";
 import { normalizeDraft } from "./flow";
 import { bandFromDraft, hasCrisisPhrase, longerFinished, scoresFromDraft } from "./scoring";
 import {
@@ -38,7 +36,6 @@ import type {
 import { COMPANION_LINE, SOFT_FLAG_NOTE, THERAPIST_NAME } from "./types";
 
 const KEY = "between.v1";
-const SAVED = "between.savedAt";
 
 type Action =
   | { type: "hydrate"; state: AppState }
@@ -555,20 +552,9 @@ function loadClient() {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-export async function wipeServerCopy() {
-  try {
-    await fetch("/api/record", { method: "DELETE" });
-    localStorage.removeItem(SAVED);
-  } catch {
-    /* The browser copy is still removed by the caller. */
-  }
-}
-
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(SERVER_STATE);
   const [ready, setReady] = useState(false);
-  const [syncReady, setSyncReady] = useState(false);
-  const pulled = useRef(false);
 
   useEffect(() => {
     const loaded = loadClient();
@@ -579,39 +565,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
     setReady(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-    let cancel = false;
-    fetch("/api/record")
-      .then(async (res) => {
-        if (!res.ok || cancel) return;
-        const file = (await res.json()) as { savedAt?: string; state?: AppState };
-        if (!file.state || cancel) return;
-        setState((current) => {
-          const stamp = localStorage.getItem(SAVED) || "";
-          const remote = file.savedAt || "";
-          const empty = !current.profile.onboardingComplete;
-          if (empty || (current.serverBackup && remote > stamp)) {
-            if (remote) localStorage.setItem(SAVED, remote);
-            const revived = revive(file.state);
-            const kept = current.journals.filter((entry) => entry.kind === "personal");
-            return {
-              ...revived,
-              journals: [...revived.journals.filter((entry) => entry.kind !== "personal"), ...kept],
-              diaryLock: current.diaryLock,
-            };
-          }
-          return current;
-        });
-      })
-      .catch(() => {
-        /* Offline: the browser copy remains. */
-      })
-      .finally(() => {
-        pulled.current = true;
-        setSyncReady(true);
-      });
-    return () => {
-      cancel = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -619,24 +572,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEY, JSON.stringify(state));
     document.documentElement.dataset.font = state.fontSize;
     document.documentElement.lang = state.language;
-    if (!syncReady || !state.serverBackup || !pulled.current) return;
-    const handle = window.setTimeout(() => {
-      fetch("/api/record", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(omitDiary(state)),
-      })
-        .then(async (res) => {
-          if (!res.ok) return;
-          const file = (await res.json()) as { savedAt?: string };
-          if (file.savedAt) localStorage.setItem(SAVED, file.savedAt);
-        })
-        .catch(() => {
-          /* The next change will try again. */
-        });
-    }, 400);
-    return () => window.clearTimeout(handle);
-  }, [ready, state, syncReady]);
+  }, [ready, state]);
 
   const dispatch = useCallback((action: Action) => {
     setState((current) => reducer(current, action));

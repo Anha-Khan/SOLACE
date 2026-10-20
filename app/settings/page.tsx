@@ -6,7 +6,7 @@ import { useState } from "react";
 import { RequireProfile } from "@/components/patient-shell";
 import { addDays, todayISO } from "@/lib/dates";
 import { accessShown, LanguageSwitch, useI18n, whenLabel } from "@/lib/i18n";
-import { useStore, wipeServerCopy } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { COMPANION_LINE, THERAPIST_NAME, type Privacy } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -335,32 +335,6 @@ function Settings() {
       </section>
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl">{t("Server copy", "সার্ভার কপি")}</h2>
-        <p className="mt-2 text-sm leading-relaxed">
-          {t(
-            "Your data will be stored on this demo server. It can be opened again in this browser, but a copy will exist outside this device.",
-            "আপনার তথ্য এই ডেমো সার্ভারে থাকবে। এই ব্রাউজারে আবার খোলা যাবে, কিন্তু একটি কপি এই ডিভাইসের বাইরেও থাকবে।",
-          )}
-        </p>
-        {state.serverBackup ? (
-          <button
-            type="button"
-            className="mt-3 min-h-11 border border-ink px-4 text-sm"
-            onClick={() => {
-              dispatch({ type: "server-backup", on: false });
-              void wipeServerCopy();
-            }}
-          >
-            {t("Keep it on this device only", "শুধু এই ডিভাইসে রাখুন")}
-          </button>
-        ) : (
-          <button type="button" className="mt-3 min-h-11 border border-ink px-4 text-sm" onClick={() => dispatch({ type: "server-backup", on: true })}>
-            {t("Keep a server copy", "একটা সার্ভার কপি রাখুন")}
-          </button>
-        )}
-      </section>
-
-      <section className="mt-10">
         <h2 className="font-serif text-2xl">{t("Your data", "আপনার তথ্য")}</h2>
         <button type="button" onClick={download} className="mt-3 min-h-11 border border-ink px-4 text-sm">
           {t("Download my data", "আমার তথ্য নামান")}
@@ -383,18 +357,16 @@ function Settings() {
           <div className="mt-4 border border-ink/15 p-4">
             <p className="text-sm leading-relaxed">
               {t(
-                "This removes your check-ins, journal, safety plan, messages, and settings from this browser. If a server copy exists, that copy is removed too. It cannot be undone.",
-                "এতে এই ব্রাউজার থেকে আপনার চেক-ইন, জার্নাল, নিরাপত্তা পরিকল্পনা, বার্তা, আর সেটিংস চলে যায়। সার্ভার কপি থাকলে সেটাও যায়। ফেরানো যায় না।",
+                "This removes your check-ins, journal, safety plan, messages, and settings from this browser. It cannot be undone.",
+                "এতে এই ব্রাউজার থেকে আপনার চেক-ইন, জার্নাল, নিরাপত্তা পরিকল্পনা, বার্তা, আর সেটিংস চলে যায়। ফেরানো যায় না।",
               )}
             </p>
             <button
               type="button"
               className="mt-3 min-h-11 bg-clay px-4 text-sm text-[#f4efe8]"
               onClick={() => {
-                void wipeServerCopy().then(() => {
-                  dispatch({ type: "reset" });
-                  router.push("/");
-                });
+                dispatch({ type: "reset" });
+                router.push("/");
               }}
             >
               {t("Delete everything on this device", "এই ডিভাইসের সব মুছুন")}
@@ -444,10 +416,8 @@ function Settings() {
           type="button"
           className="mt-4 block text-sm underline"
           onClick={() => {
-            void wipeServerCopy().then(() => {
-              dispatch({ type: "reset" });
-              router.push("/");
-            });
+            dispatch({ type: "reset" });
+            router.push("/");
           }}
         >
           {t("Reset all data", "সব তথ্য রিসেট")}
