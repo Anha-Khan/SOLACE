@@ -103,10 +103,17 @@ export function bandSentence(band: Band) {
 }
 
 export function hasCrisisPhrase(text: string) {
-  const normalized = text.toLowerCase();
-  return ["kill myself", "want to die", "end my life"].some((phrase) =>
-    normalized.includes(phrase),
-  );
+  const normalized = text.toLocaleLowerCase().replace(/\s+/g, " ").trim();
+  const explicitPhrases = [
+    "kill myself",
+    "want to die",
+    "end my life",
+    "মরতে চাই",
+    "মরে যেতে চাই",
+    "নিজেকে মেরে ফেলতে চাই",
+    "জীবন শেষ করতে চাই",
+  ];
+  return explicitPhrases.some((phrase) => normalized.includes(phrase));
 }
 
 export function sentimentLine(texts: string[]) {

@@ -303,7 +303,7 @@ function MoodBlock({ date = todayISO() }: { date?: string }) {
       <section className="checkin-card checkin-past" aria-live="polite">
         <EmotionCompanion mood={entry?.mood ?? null} />
         <div>
-          <p className="kicker">{new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
+          <p className="kicker">{new Date(`${date}T12:00:00`).toLocaleDateString(lang === "bn" ? "bn-BD" : "en", { weekday: "long", month: "long", day: "numeric" })}</p>
           <h2>{entry ? t("This is what you left here.", "এখানে আপনি যা রেখে গিয়েছিলেন।") : t("Nothing recorded here yet. That’s completely okay.", "এখানে এখনও কিছু রাখা হয়নি। সেটাও একদম ঠিক আছে।")}</h2>
           {entry ? <p>{moodWord(entry.mood, lang)} · {bodyWord(entry.body, lang)}</p> : <p>{t("Choose today to add a check-in, or simply keep looking back.", "চেক-ইন যোগ করতে আজকে বেছে নিন, অথবা শুধু পেছনে তাকান।")}</p>}
         </div>
