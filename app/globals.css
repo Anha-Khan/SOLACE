@@ -1169,6 +1169,13 @@
   --card: #fbf7ee;
   --clinic: #dce5d8;
   --line: rgba(36, 49, 43, 0.12);
+  --line-strong: rgba(23, 63, 58, 0.18);
+  --surface-week: #e8eee4;
+  --surface-calm: #dce5d8;
+  --surface-lavender: #e5e3e9;
+  --leaf-bright: #c3d6a9;
+  --shadow-soft: 0 12px 30px rgba(23, 63, 58, 0.07);
+  --shadow-offset: 6px 7px 0 rgba(23, 63, 58, 0.07);
   background: var(--paper);
   color: var(--ink);
 }
@@ -1653,6 +1660,133 @@ input, textarea, select {
     scroll-behavior: auto !important;
   }
 }
+
+.landing-hero {
+  display: grid;
+  gap: 2.5rem;
+  padding-block: clamp(3rem, 8vw, 6.5rem) clamp(5rem, 11vw, 9rem);
+  border-bottom: 1px solid var(--line);
+}
+
+.landing-copy {
+  min-width: 0;
+}
+
+.landing-copy h1 {
+  max-width: 13ch;
+  margin-top: 1.25rem;
+  color: var(--forest);
+  font-family: var(--font-serif);
+  font-size: clamp(2.7rem, 7vw, 5rem);
+  line-height: 1.01;
+  letter-spacing: -.04em;
+  overflow-wrap: anywhere;
+}
+
+.landing-copy > p:not(.kicker) {
+  max-width: 36rem;
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.72;
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-top: 2.25rem;
+}
+
+.landing-action {
+  display: inline-flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: .75rem 1.4rem .75rem .75rem;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+
+.landing-action-primary {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.landing-action-quiet {
+  background: transparent;
+  color: var(--forest);
+}
+
+.landing-visual {
+  position: relative;
+  align-self: end;
+  padding: 1rem 1rem 1.35rem;
+  border-inline-start: 1px solid var(--line-strong);
+}
+
+.landing-visual::before {
+  content: "";
+  position: absolute;
+  inset: 12% 4% auto auto;
+  width: 45%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 58% 42% 68% 32%;
+  transform: rotate(12deg);
+}
+
+.landing-visual .emotion-scene {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-visual p {
+  position: relative;
+  z-index: 1;
+  max-width: 22rem;
+  margin: -.5rem auto 0;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+@media (min-width: 48rem) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1.4fr) minmax(15rem, .6fr);
+    align-items: end;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .landing-copy h1 {
+    font-size: clamp(2.55rem, 13vw, 3.4rem);
+  }
+
+  .landing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .landing-action {
+    width: 100%;
+  }
+
+  .landing-visual {
+    display: grid;
+    grid-template-columns: minmax(7rem, .55fr) minmax(0, 1fr);
+    align-items: center;
+    padding-inline-start: .5rem;
+  }
+
+  .landing-visual p {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+}
 @property --tw-rotate-x {
   syntax: "*";
   inherits: false;
@@ -1788,5 +1922,134 @@ input, textarea, select {
       --tw-ring-offset-color: #fff;
       --tw-ring-offset-shadow: 0 0 #0000;
     }
+  }
+}
+
+/* Final product layer: deliberate silhouettes, local surfaces, quiet motion. */
+html,
+body {
+  overflow-x: clip;
+}
+
+h1,
+h2,
+.dashboard-greeting,
+.history-heading {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.round-next,
+.soft-chip,
+.patient-nav a,
+.week-arrows button,
+.calendar-head button {
+  white-space: nowrap;
+}
+
+.patient-root {
+  background: var(--paper);
+}
+
+.practice-card {
+  border: 1px solid var(--line-strong);
+  border-radius: 1rem 3rem 1rem 1rem;
+  background: var(--surface-calm);
+  box-shadow: var(--shadow-offset);
+}
+
+.soft-card {
+  border: 1px solid var(--line);
+  border-radius: 1.15rem 2.2rem 1.15rem 1.15rem;
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+
+.soft-choice {
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  box-shadow: none;
+}
+
+.week-strip {
+  border-color: var(--line-strong);
+  background: var(--surface-week);
+  box-shadow: var(--shadow-offset);
+}
+
+.checkin-card,
+.calendar-card {
+  border-color: var(--line-strong);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+
+.day-reflection {
+  border-color: var(--line-strong);
+  background: var(--surface-lavender);
+}
+
+.mood-6,
+.mood-7 {
+  background: var(--sage) !important;
+}
+
+.mood-8,
+.mood-9,
+.mood-10 {
+  background: var(--leaf-bright) !important;
+}
+
+.patient-nav {
+  border-radius: 1.1rem 1.1rem 1.8rem 1.1rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .round-next,
+  .soft-choice,
+  .patient-nav a,
+  .calendar-head button,
+  .week-arrows button {
+    transition: transform 160ms cubic-bezier(.2, .7, .3, 1), background-color 160ms cubic-bezier(.2, .7, .3, 1);
+  }
+
+  .round-next:hover,
+  .soft-choice:hover,
+  .calendar-head button:hover,
+  .week-arrows button:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (min-width: 80rem) {
+  .patient-root > .fixed {
+    inset: 50% auto auto max(1rem, calc(50% - 39rem));
+    transform: translateY(-50%);
+    padding: 0;
+  }
+
+  .patient-nav {
+    width: 7.5rem;
+    padding: .75rem;
+    border-radius: 1rem 1rem 2rem 1rem;
+  }
+
+  .patient-nav nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .patient-nav nav a {
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emotion-scene,
+  .emotion-joyful .leaf-one,
+  .emotion-joyful .leaf-two {
+    animation: none !important;
   }
 }

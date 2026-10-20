@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Companion } from "@/components/companion";
+import { EmotionCompanion } from "@/components/emotion-companion";
 import { CrisisLines } from "@/components/crisis-lines";
 import { LanguageSwitch, useI18n } from "@/lib/i18n";
 
@@ -30,10 +30,10 @@ export default function LandingPage() {
       </header>
 
       <main id="content" className="mx-auto w-full max-w-5xl px-5 pb-20 sm:px-8">
-        <section className="grid items-center gap-10 py-10 md:grid-cols-12 md:py-16">
-          <div className="md:col-span-8">
+        <section className="landing-hero">
+          <div className="landing-copy">
             <p className="kicker">{t("Trauma recovery companion", "ট্রমার পর সঙ্গী")}</p>
-            <h1 className="mt-5 max-w-4xl font-serif text-[2.7rem] leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
+            <h1>
               {t(
                 "Your therapist works with you once a week. We work with you every day.",
                 "আপনার থেরাপিস্ট সপ্তাহে একবার আপনার সঙ্গে কাজ করেন। আমরা প্রতিদিন আপনার সঙ্গে কাজ করি।",
@@ -45,25 +45,24 @@ export default function LandingPage() {
                 "ঘণ্টাটা রুমে সত্যি। বাকি দিনগুলোতেই ঘুম, কাজ, আর স্মৃতি আসলে ঘটে। Between সেই ফাঁকের জন্য একটা শান্ত জায়গা — আপনার থেরাপিস্টের সঙ্গে, তাঁর বদলে নয়।",
               )}
             </p>
-            <div className="mt-10 grid gap-3 sm:grid-cols-2">
+            <div className="landing-actions">
               <Link
                 href="/ground"
-                className="inline-flex min-h-14 items-center justify-center rounded-full bg-card px-4 py-3 text-center text-sm shadow-[0_10px_24px_rgba(63,92,74,0.08)]"
+                className="landing-action landing-action-quiet"
               >
                 {t("I need help right now", "এই মুহূর্তে আমার সাহায্য দরকার")}
               </Link>
               <Link
                 href="/onboarding"
-                className="inline-flex min-h-14 items-center justify-center rounded-full bg-butter px-4 py-3 text-center text-sm"
+                className="landing-action landing-action-primary"
               >
                 {t("I'm okay, just exploring", "আমি ঠিক আছি, শুধু দেখছি")}
               </Link>
             </div>
           </div>
-          <div className="md:col-span-4">
-            <div className="soft-card grid min-h-64 place-items-center bg-blush/40">
-              <Companion look="rest" className="h-40 w-44" />
-            </div>
+          <div className="landing-visual">
+            <EmotionCompanion mood={7} />
+            <p>{t("A quiet place for the days that happen between appointments.", "সেশনের মাঝের দিনগুলোর জন্য একটি শান্ত জায়গা।")}</p>
           </div>
         </section>
 
