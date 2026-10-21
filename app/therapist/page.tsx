@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { TherapistFrame } from "@/components/therapist-frame";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 import { daysBetween, todayISO } from "@/lib/dates";
 import { ago, flagShown, moodWord, stageShown, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
@@ -19,6 +20,9 @@ export default function TherapistHome() {
     return (
       <main className="min-h-dvh bg-clinic text-ink">
         <div className="mx-auto max-w-md px-5 py-16">
+          <div className="mb-8 flex justify-end">
+            <TimeThemeToggle />
+          </div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-sage">{t("Demo data", "ডেমো তথ্য")}</p>
           <h1 className="mt-3 font-serif text-4xl">{t("Therapist demo", "থেরাপিস্ট ডেমো")}</h1>
           <p className="mt-3 text-sm leading-relaxed">

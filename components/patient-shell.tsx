@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { effectiveLevel } from "@/lib/select";
 import { useStore } from "@/lib/store";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 
 const LINKS = [
   { href: "/home", label: "Today" },
@@ -45,9 +46,12 @@ export function PatientShell({
           <Link href="/home" className="font-serif text-2xl tracking-tight">
             Between
           </Link>
-          <Link href="/exit" className="soft-chip">
-            {t("Exit", "বেরিয়ে যান")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <TimeThemeToggle compact />
+            <Link href="/exit" className="soft-chip">
+              {t("Exit", "বেরিয়ে যান")}
+            </Link>
+          </div>
         </header>
         <main className="patient-main flex-1 pb-36">{children}</main>
       </div>

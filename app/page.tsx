@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EmotionCompanion } from "@/components/emotion-companion";
 import { CrisisLines } from "@/components/crisis-lines";
 import { LanguageSwitch, useI18n } from "@/lib/i18n";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 
 export default function LandingPage() {
   const { t } = useI18n();
@@ -20,6 +21,7 @@ export default function LandingPage() {
           Between
         </Link>
         <nav aria-label={t("Primary", "প্রধান")} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <TimeThemeToggle />
           <LanguageSwitch />
           <Link href="/ground">{t("Need help now", "এখনই সাহায্য দরকার")}</Link>
           <Link href="/therapist">{t("For therapists", "থেরাপিস্টদের জন্য")}</Link>

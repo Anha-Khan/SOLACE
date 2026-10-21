@@ -1176,11 +1176,14 @@
   --leaf-bright: #c3d6a9;
   --shadow-soft: 0 12px 30px rgba(23, 63, 58, 0.07);
   --shadow-offset: 6px 7px 0 rgba(23, 63, 58, 0.07);
+  --accent-ink: #f4efe5;
+  --ease-soft: cubic-bezier(.2, .75, .3, 1);
   background: var(--paper);
   color: var(--ink);
 }
 html {
   font-size: 16px;
+  color-scheme: light;
 }
 html[data-font="large"] {
   font-size: 18.5px;
@@ -1931,6 +1934,174 @@ body {
   overflow-x: clip;
 }
 
+html[data-time="night"] {
+  color-scheme: dark;
+  --paper: #102c29;
+  --ink: #e8ede4;
+  --clay: #e0a48d;
+  --sage: #91ad9d;
+  --sage-deep: #78a492;
+  --forest: #bad2c1;
+  --moss: #24483f;
+  --peach: #dca58e;
+  --lavender: #aaa6ba;
+  --blush: #523e3b;
+  --butter: #514a31;
+  --muted: #afbbb5;
+  --card: #173934;
+  --clinic: #14342f;
+  --line: rgba(232, 237, 228, .13);
+  --line-strong: rgba(232, 237, 228, .22);
+  --surface-week: #1a403a;
+  --surface-calm: #1b453d;
+  --surface-lavender: #302f3a;
+  --leaf-bright: #a9c58d;
+  --shadow-soft: 0 14px 32px rgba(1, 12, 10, .18);
+  --shadow-offset: 6px 7px 0 rgba(1, 12, 10, .18);
+  --accent-ink: #102c29;
+}
+
+body,
+.patient-root,
+.bg-paper,
+.bg-clinic,
+.bg-card,
+.soft-card,
+.practice-card,
+.week-strip,
+.checkin-card,
+.calendar-card,
+.day-reflection {
+  transition: background-color 240ms var(--ease-soft), border-color 240ms var(--ease-soft), color 240ms var(--ease-soft);
+}
+
+html[data-time="night"] .bg-white {
+  background-color: var(--card);
+}
+
+html[data-time="night"] input,
+html[data-time="night"] textarea,
+html[data-time="night"] select {
+  color: var(--ink);
+}
+
+.time-toggle {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(3.4rem, 1fr));
+  min-height: 2.75rem;
+  flex: none;
+  padding: .22rem;
+  border: 1px solid var(--line-strong);
+  border-radius: .9rem 1.35rem .9rem .9rem;
+  background: var(--card);
+  color: var(--muted);
+  box-shadow: 3px 4px 0 rgba(23, 63, 58, .06);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-time="night"] .time-toggle {
+  box-shadow: 3px 4px 0 rgba(1, 12, 10, .18);
+}
+
+.time-toggle__thumb {
+  position: absolute;
+  z-index: -1;
+  inset-block: .22rem;
+  left: .22rem;
+  width: calc(50% - .22rem);
+  border-radius: .68rem 1rem .68rem .68rem;
+  background: var(--forest);
+  transform: translateX(0);
+  transition: transform 220ms var(--ease-soft), background-color 240ms var(--ease-soft);
+}
+
+.time-toggle[data-mode="night"] .time-toggle__thumb {
+  transform: translateX(100%);
+  border-radius: 1rem .95rem .68rem .68rem;
+}
+
+.time-toggle__option {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: .32rem;
+  padding-inline: .45rem;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--muted);
+  transition: color 180ms var(--ease-soft);
+}
+
+.time-toggle__option[data-active="true"] {
+  color: var(--accent-ink);
+}
+
+.time-toggle__option svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.time-toggle__option .time-toggle__star {
+  fill: currentColor;
+  stroke: none;
+}
+
+.time-toggle[data-compact="true"] {
+  grid-template-columns: repeat(2, 2.35rem);
+}
+
+.time-toggle[data-compact="true"] .time-toggle__option span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.time-toggle:hover {
+  border-color: var(--forest);
+}
+
+.time-toggle:active .time-toggle__thumb {
+  transform: translateX(0) scale(.95);
+}
+
+.time-toggle[data-mode="night"]:active .time-toggle__thumb {
+  transform: translateX(100%) scale(.95);
+}
+
+.time-toggle:focus-visible {
+  outline: 3px solid var(--peach);
+  outline-offset: 3px;
+}
+
+.time-toggle:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.round-next,
+.landing-action-primary,
+.week-day.is-selected,
+.calendar-day.is-selected {
+  color: var(--accent-ink);
+}
+
 h1,
 h2,
 .dashboard-greeting,
@@ -2049,7 +2220,21 @@ h2,
 @media (prefers-reduced-motion: reduce) {
   .emotion-scene,
   .emotion-joyful .leaf-one,
-  .emotion-joyful .leaf-two {
+  .emotion-joyful .leaf-two,
+  .time-toggle__thumb,
+  .time-toggle__option,
+  body,
+  .patient-root,
+  .bg-paper,
+  .bg-clinic,
+  .bg-card,
+  .soft-card,
+  .practice-card,
+  .week-strip,
+  .checkin-card,
+  .calendar-card,
+  .day-reflection {
     animation: none !important;
+    transition: none !important;
   }
 }

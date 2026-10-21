@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { waitingAlerts } from "@/lib/alerts";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 
 export function TherapistFrame({
   children,
@@ -44,6 +45,7 @@ export function TherapistFrame({
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm">
+            <TimeThemeToggle compact />
             <Link href="/therapist" className="font-serif text-xl">
               Between
             </Link>

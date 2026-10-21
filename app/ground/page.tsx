@@ -6,6 +6,7 @@ import { BreathCircle } from "@/components/breath";
 import { Companion } from "@/components/companion";
 import { CrisisLines } from "@/components/crisis-lines";
 import { OFFLINE_LINE, SafetyEcho, useOffline } from "@/components/offline";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
@@ -46,9 +47,12 @@ export default function GroundPage() {
           <Link href="/" className="font-serif text-xl">
             Between
           </Link>
-          <Link href="/exit" className="text-sm">
-            {t("Exit", "বেরিয়ে যান")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <TimeThemeToggle compact />
+            <Link href="/exit" className="text-sm">
+              {t("Exit", "বেরিয়ে যান")}
+            </Link>
+          </div>
         </header>
 
         <Companion look="still" className="mt-8" />

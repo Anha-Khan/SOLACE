@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ChoicePulse, Companion, useChoicePulse, type CompanionLook } from "@/components/companion";
 import { CrisisLines } from "@/components/crisis-lines";
+import { TimeThemeToggle } from "@/components/time-theme-toggle";
 import { onboardingSteps, stepIndex } from "@/lib/flow";
 import { bandLine, categoryWord, SurveyNote, useI18n } from "@/lib/i18n";
 import { bandFromDraft } from "@/lib/scoring";
@@ -160,9 +161,12 @@ export default function OnboardingPage() {
       <div className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-5 py-6">
         <header className="flex items-center justify-between">
           <p className="font-serif text-2xl">Between</p>
-          <Link href="/exit" className="soft-chip">
-            {t("Exit", "বেরিয়ে যান")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <TimeThemeToggle compact />
+            <Link href="/exit" className="soft-chip">
+              {t("Exit", "বেরিয়ে যান")}
+            </Link>
+          </div>
         </header>
         <div
           className="mt-6 flex gap-1.5"
