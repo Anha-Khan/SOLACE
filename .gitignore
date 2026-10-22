@@ -1,9 +1,17 @@
-/node_modules
-/.next
-/out
+**/node_modules
+**/.next
+**/out
 .DS_Store
 *.log
 *.tsbuildinfo
 AGENTS.md
 .env*
 !.env.example
+
+# Flutter
+.dart_tool/
+build/
+**/android/local.properties
+.flutter-plugins-dependencies
+.idea/
+*.iml
