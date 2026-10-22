@@ -1,8 +1,30 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { Fraunces, Noto_Sans_Bengali, Onest } from "next/font/google";
 import type { ReactNode } from "react";
 import { RegisterSW } from "@/components/register-sw";
 import "./globals.css";
+import "./flowstate.css";
+
+const onest = Onest({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-onest",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const bengali = Noto_Sans_Bengali({
+  subsets: ["bengali"],
+  weight: ["400", "500"],
+  variable: "--font-bn",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Between",
@@ -11,18 +33,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        <Script
-          id="time-theme"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html:
-              '(function(){try{var saved=localStorage.getItem("between.time-theme");var preferred=window.matchMedia("(prefers-color-scheme: dark)").matches?"night":"day";document.documentElement.dataset.time=saved==="day"||saved==="night"?saved:preferred}catch(e){document.documentElement.dataset.time="day"}})();',
-          }}
-        />
-      </head>
-      <body className="min-h-full font-sans">
+    <html lang="en" className={`${onest.variable} ${fraunces.variable} ${bengali.variable}`} suppressHydrationWarning>
+      <body>
         <RegisterSW />
         {children}
       </body>
