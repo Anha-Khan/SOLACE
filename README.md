@@ -150,7 +150,7 @@ npx tsc --noEmit
 
 ```
 .
-├── app/
+├── apps/
 │   ├── landing/               # Next.js landing page
 │   │   ├── app/
 │   │   │   ├── layout.tsx            # Fonts, metadata, root shell
@@ -171,11 +171,11 @@ npx tsc --noEmit
 │   │   │   ├── fluid.js              # The WebGL ink solver (MIT, see header)
 │   │   │   └── sw.js                 # Minimal service worker
 │   │   └── package.json
-│   └── mobile/                  # Flutter app (Android)
+│   └── mobile/                # Flutter app (Android)
 ├── packages/
-│   └── design-tokens/           # Colour, type, spacing and motion as JSON
-├── docs/                        # README preview images
-├── DESIGN_SYSTEM.md             # Full token + component reference
+│   └── design-tokens/         # Colour, type, spacing and motion as JSON
+├── docs/                      # README preview images
+├── DESIGN_SYSTEM.md           # Full token + component reference
 └── README.md
 ```
 
