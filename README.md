@@ -38,11 +38,12 @@ set on a full-width typographic grid, with no cards and no boxes.
 
 ## What it is
 
-**Between** is the public landing site for a trauma-recovery companion app.
+**Between** is a trauma-recovery companion app, and a public landing site for it.
 
-The app itself ships separately (iOS / Android). This repository holds only the marketing
-site, a single page that explains what Between is, keeps the safety promises easy to check,
-puts the crisis line one tap away and collects waitlist sign-ups.
+This repository is a monorepo. `apps/landing` holds the marketing site, a single page that
+explains what Between is, keeps the safety promises easy to check, puts the crisis line one tap
+away and collects waitlist sign-ups. `apps/mobile` holds the Flutter app, Android first.
+`packages/design-tokens` holds the shared palette, type scale, spacing and motion values.
 
 > **Between is a companion, not a replacement for your therapist.**
 > It is not a treatment, not a diagnosis, not a replacement for a therapist, and not a crisis
@@ -89,7 +90,8 @@ texture and the voice.
 - A typographic crisis band that sets the Kaan Pete Roi number as display type, with *Call Kaan*
   and *Call 999* as tap targets.
 - A rem-based layout that scales proportionally from 320px to 1920px.
-- App icons in `app/icon.svg` and `app/apple-icon.png`, generated from the header glyph.
+- App icons in `apps/landing/app/icon.svg` and `apps/landing/app/apple-icon.png`, generated from the
+  header glyph.
 
 ---
 
@@ -97,13 +99,13 @@ texture and the voice.
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
-| Framework | **Next.js 16.4** (App Router, Turbopack) | `app/` directory, server layout and client page |
+| Framework | **Next.js 16.4** (App Router, Turbopack) | `apps/landing/app/` directory, server layout and client page |
 | UI runtime | **React 19.2** | The landing page is a single client component |
 | Language | **TypeScript 5** (`strict`) | `tsc --noEmit` is clean |
-| Styling | Hand-authored CSS in `app/flowstate.css` | No CSS-in-JS, no utility-class dependency |
-| Tailwind | v4 artifact at `app/globals.css` | Legacy and pre-compiled, not processed at build |
+| Styling | Hand-authored CSS in `apps/landing/app/flowstate.css` | No CSS-in-JS, no utility-class dependency |
+| Tailwind | v4 artifact at `apps/landing/app/globals.css` | Legacy and pre-compiled, not processed at build |
 | Smooth scroll | **Lenis 1.3** | `import Lenis from "lenis"` in a client component |
-| Graphics | **WebGL fluid solver** | `public/fluid.js`, adapted from Dobryakov's MIT project |
+| Graphics | **WebGL fluid solver** | `apps/landing/public/fluid.js`, adapted from Dobryakov's MIT project |
 | Fonts | **Onest**, **Fraunces**, **Noto Sans Bengali** | Via `next/font/google`, self-hosted at build |
 | Storage | `localStorage` | Language preference and waitlist emails |
 | Backend | **None** | No API routes, no database, no environment variables |
@@ -121,7 +123,7 @@ texture and the voice.
 
 ```bash
 git clone https://github.com/Anha-Khan/Aicongress.git
-cd Aicongress
+cd Aicongress/apps/landing
 npm install
 npm run dev
 ```
@@ -149,26 +151,32 @@ npx tsc --noEmit
 ```
 .
 ├── app/
-│   ├── layout.tsx            # Fonts, metadata, root shell
-│   ├── page.tsx              # The landing page (client component)
-│   ├── flowstate.css         # The whole design system, hand-authored
-│   ├── globals.css           # Legacy pre-compiled Tailwind v4 artifact
-│   ├── icon.svg              # Favicon: the header flow-line glyph
-│   └── apple-icon.png        # 180×180 iOS home-screen icon
-├── components/
-│   ├── fluid-canvas.tsx      # Mounts the WebGL solver on a <canvas>
-│   ├── hero-companion.tsx    # The creature, re-skinned for dark
-│   ├── smooth-scroll.tsx     # Lenis bootstrap + RAF loop
-│   └── register-sw.tsx       # Service-worker registration
-├── lib/
-│   ├── i18n.tsx              # EN/BN store, `useI18n()`, `LanguageSwitch`
-│   └── types.ts              # Language type + crisis-line constants
-├── public/
-│   ├── fluid.js              # The WebGL ink solver (MIT, see header)
-│   └── sw.js                 # Minimal service worker
-├── docs/                     # README preview images
-├── DESIGN_SYSTEM.md          # Full token + component reference
-└── package.json
+│   ├── landing/               # Next.js landing page
+│   │   ├── app/
+│   │   │   ├── layout.tsx            # Fonts, metadata, root shell
+│   │   │   ├── page.tsx              # The landing page (client component)
+│   │   │   ├── flowstate.css         # The whole design system, hand-authored
+│   │   │   ├── globals.css           # Legacy pre-compiled Tailwind v4 artifact
+│   │   │   ├── icon.svg              # Favicon: the header flow-line glyph
+│   │   │   └── apple-icon.png        # 180×180 iOS home-screen icon
+│   │   ├── components/
+│   │   │   ├── fluid-canvas.tsx      # Mounts the WebGL solver on a <canvas>
+│   │   │   ├── hero-companion.tsx    # The creature, re-skinned for dark
+│   │   │   ├── smooth-scroll.tsx     # Lenis bootstrap + RAF loop
+│   │   │   └── register-sw.tsx       # Service-worker registration
+│   │   ├── lib/
+│   │   │   ├── i18n.tsx              # EN/BN store, `useI18n()`, `LanguageSwitch`
+│   │   │   └── types.ts              # Language type + crisis-line constants
+│   │   ├── public/
+│   │   │   ├── fluid.js              # The WebGL ink solver (MIT, see header)
+│   │   │   └── sw.js                 # Minimal service worker
+│   │   └── package.json
+│   └── mobile/                  # Flutter app (Android)
+├── packages/
+│   └── design-tokens/           # Colour, type, spacing and motion as JSON
+├── docs/                        # README preview images
+├── DESIGN_SYSTEM.md             # Full token + component reference
+└── README.md
 ```
 
 ---
@@ -207,8 +215,8 @@ npm run start        # listens on $PORT (default 3000)
 
 ### Static export
 
-`app/` contains a single prerendered route, so `output: "export"` in `next.config.ts` produces a
-fully static site in `out/`.
+`apps/landing/app/` contains a single prerendered route, so `output: "export"` in `next.config.ts`
+produces a fully static site in `apps/landing/out/`.
 
 ---
 
@@ -225,8 +233,8 @@ fully static site in `out/`.
 ## Contributing
 
 1. Fork the repository and create a branch: `git checkout -b feature/my-change`
-2. Make the change, keeping the design tokens in `app/flowstate.css` as the single source of
-   truth for colour, type, spacing and motion.
+2. Make the change, keeping the design tokens in `apps/landing/app/flowstate.css` as the single source
+   of truth for colour, type, spacing and motion.
 3. Verify at **320 / 375 / 414 / 640 / 768 / 1024 / 1440 / 1920px**. The layout is rem-based, so
    it has to stay proportional.
 4. Run `npm run build` and `npx tsc --noEmit`.
@@ -237,8 +245,8 @@ fully static site in `out/`.
 - No new runtime dependencies without discussion. The bundle is deliberately tiny.
 - No analytics, trackers or third-party scripts.
 - Nothing that could read or transmit visitor data.
-- Crisis-line copy lives in one place (`lib/types.ts` plus the crisis band) and must stay
-  accurate.
+- Crisis-line copy lives in one place (`apps/landing/lib/types.ts` plus the crisis band) and must
+  stay accurate.
 
 ---
 
@@ -246,7 +254,7 @@ fully static site in `out/`.
 
 - The WebGL fluid simulation is adapted from
   [PavelDoGreat/WebGL-Fluid-Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
-  under the MIT licence. The full notice sits in the header of `public/fluid.js`.
+  under the MIT licence. The full notice sits in the header of `apps/landing/public/fluid.js`.
 - [Lenis](https://github.com/darkroomengineering/lenis), under the MIT licence.
 - Onest, Fraunces and Noto Sans Bengali, under the SIL Open Font License, via `next/font`.
 
@@ -254,8 +262,8 @@ fully static site in `out/`.
 
 ## License
 
-The fluid simulation in `public/fluid.js` is MIT licensed and attributed above. The rest of the
-source has no licence yet. Add a `LICENSE` file before publishing publicly.
+The fluid simulation in `apps/landing/public/fluid.js` is MIT licensed and attributed above. The rest
+of the source has no licence yet. Add a `LICENSE` file before publishing publicly.
 
 ---
 

@@ -4,13 +4,16 @@ The single source of truth for Between's visual language. This document is writt
 **read on its own**, without the source code, and to be handed to an implementation agent
 (Claude, a designer, a new developer) as the brief for building the app.
 
-**What this repo is.** The web landing page only. The mobile app ships separately.
-**Where the code lives.** `app/flowstate.css` holds every token and rule below;
-`app/page.tsx` holds the composition; `components/hero-companion.tsx` holds the creature;
-`public/fluid.js` holds the background solver.
+**What this repo is.** A monorepo. `apps/landing` is the web landing page, `apps/mobile` is the
+Flutter app, `packages/design-tokens` is the shared token source.
+**Where the code lives.** `apps/landing/app/flowstate.css` holds every token and rule below;
+`apps/landing/app/page.tsx` holds the composition;
+`apps/landing/components/hero-companion.tsx` holds the creature;
+`apps/landing/public/fluid.js` holds the background solver.
 
-> `app/globals.css` is a legacy pre-compiled Tailwind v4 artifact. It is not processed at build
-> time. The landing page uses only the hand-authored `fs-*` classes. Ignore it.
+> `apps/landing/app/globals.css` is a legacy pre-compiled Tailwind v4 artifact. It is not
+> processed at build time. The landing page uses only the hand-authored `fs-*` classes. Ignore
+> it.
 
 ---
 
@@ -24,6 +27,10 @@ full-bleed surface. A GPU ink simulation lives behind everything, a radial scrim
 middle so text stays legible, and a faint garden grid sits over the ink. Content is set on a
 full-width typographic grid with hairline rules. There are no cards, no boxes, no shadows
 floating in space.
+
+> **The fluid shader is a landing-page-only effect.** It is the signature of the website. The
+> app does not reproduce it, and section 13.3 explains what the app uses instead. Every other
+> rule in this document applies to both.
 
 The character in the corner is not decoration. It is the product's emotional anchor and it
 behaves like a small living thing: it watches the pointer, blinks on its own, waves when you
@@ -189,6 +196,10 @@ Bengali size is pulled down roughly 25% and given looser leading.
 state. The focus ring appears instantly, never fades in. Hover is a 1px lift or a colour
 shift, never both at once.
 
+**In the app.** Every duration and easing above is reproduced exactly, and the constraint holds
+as written: the app animates `transform` and `opacity` only, which maps to `Transform` and
+`Opacity` in Flutter and never to a layout pass. Nothing here needs re-deciding for native.
+
 **Reduced motion.** `prefers-reduced-motion: reduce` disables every reveal, the leaf
 animation, the pet bounce and the wave. The creature still changes expression, it just does
 not move. The floating leaves are hidden entirely.
@@ -268,7 +279,7 @@ The most important band on the page and the least decorative.
 
 ## 7. The companion creature
 
-`components/hero-companion.tsx`. A hand-drawn SVG, `viewBox="0 0 260 190"`, originally the
+`apps/landing/components/hero-companion.tsx`. A hand-drawn SVG, `viewBox="0 0 260 190"`, originally the
 mascot of Between's first design. It is redrawn in the dark palette and it behaves like a
 small animal. It is the emotional anchor of the page.
 
@@ -317,8 +328,11 @@ garden grid and below the nav.
 
 ## 8. The fluid background
 
-`public/fluid.js`. A GPU ink solver running full-bleed behind the whole page. It is the
-"stage". It is derived from Pavel Dobryakov's MIT-licensed WebGL fluid simulation, adapted
+> **Landing page only.** This section describes the website's background. The Android app does
+> not ship the shader. See section 13.3 for what the app uses instead.
+
+`apps/landing/public/fluid.js`. A GPU ink solver running full-bleed behind the whole page. It is
+the "stage". It is derived from Pavel Dobryakov's MIT-licensed WebGL fluid simulation, adapted
 in six specific ways.
 
 ### 8.1 Configuration
@@ -459,32 +473,37 @@ guidance, not a decision. The decisions still need making.
 | IntersectionObserver reveals | `LazyListItem` or a scroll-state hook | Keep the failsafe so content is never stuck hidden |
 | `100lvh` | Window insets plus the screen height | The hero is a three-row grid: chrome, centred content, footer. Edge-to-edge needs inset handling |
 
-### 13.3 The fluid background is the hard part
+### 13.3 The fluid background does not ship in the app
 
-The web solver is **multi-pass**: advect the velocity field, compute curl, apply vorticity,
-solve pressure over 20 Jacobi iterations, subtract the pressure gradient, then advect the dye.
-That needs ping-pong framebuffers.
+**Decided: the app does not reproduce the shader.** The solver stays on the landing page. It is
+the website's signature, not a requirement of the product.
 
-AGSL `RuntimeShader`, which is the natural Android tool, is **single-pass**. It cannot run a
-multi-pass solver. So there are three real options, and the choice drives the app's rendering
-architecture:
+For the record, the reason it is awkward to port. The web solver is **multi-pass**: advect the
+velocity field, compute curl, apply vorticity, solve pressure over 20 Jacobi iterations,
+subtract the pressure gradient, then advect the dye. That needs ping-pong framebuffers. AGSL
+`RuntimeShader`, the natural Android tool, is **single-pass** and cannot run a multi-pass
+solver. The options that existed were: port it to OpenGL ES 3.0 or Vulkan directly, build a
+single-pass AGSL approximation that fakes marbling from a scrolling noise field, or drop the
+shader for a static gradient.
 
-1. **OpenGL ES 3.0 or Vulkan directly**, porting the solver. Faithful, and the most work.
-2. **A single-pass AGSL approximation** that fakes marbling from a scrolling noise field.
-   Much cheaper, not the same thing, and a legitimate product call.
-3. **A static or slow gradient** with no shader at all. Loses the "stage" entirely.
+**What the app does instead.** The dark ground is a solid `--hero-base` field with the same
+radial scrim and the same faint garden grid, both of which are cheap to draw in Flutter and
+carry the same visual weight without the GPU cost. The shader's job in the design is to make
+the page feel alive and depthless, not to carry information, so the app keeps the depthless
+feel and drops the movement.
 
-The web build already disables shading on mobile for GPU cost, which is a hint that the
-budget here is not generous. Decide this before writing any rendering code.
+If a future version wants the ink back, the honest options are a GLES or Vulkan platform view
+(most work) or a single-pass approximation (cheaper, visibly different). That is a later
+decision, not a blocker for the first release.
 
 ### 13.4 What to decide before implementation
 
-1. Which platform stack. If the app wraps web content, the design transfers almost verbatim
-   and the shader keeps working. If it is native, everything above applies.
-2. The fluid background approach from section 13.3.
-3. How the rem grid becomes `sp` and `dp`.
-4. Whether the design tokens become a shared package consumed by both the site and the app, so
-   there is one source of truth rather than two copies that drift.
+1. How the rem grid becomes `sp` and `dp`. This is the one real translation decision left.
+2. How the design tokens become a shared package consumed by both the site and the app, so
+   there is one source of truth rather than two copies that drift. `packages/design-tokens`
+   exists for this and holds the token JSON.
+3. The app's platform stack beyond Android. Everything above assumes Flutter with an Android
+   MVP.
 
 ---
 
