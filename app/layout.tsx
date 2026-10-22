@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import { RegisterSW } from "@/components/register-sw";
-import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,10 +23,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="min-h-full font-sans">
-        <StoreProvider>
-          <RegisterSW />
-          {children}
-        </StoreProvider>
+        <RegisterSW />
+        {children}
       </body>
     </html>
   );

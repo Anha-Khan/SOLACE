@@ -23,10 +23,10 @@ export default function LandingPage() {
         <nav aria-label={t("Primary", "প্রধান")} className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <TimeThemeToggle />
           <LanguageSwitch />
-          <Link href="/ground">{t("Need help now", "এখনই সাহায্য দরকার")}</Link>
-          <Link href="/therapist">{t("For therapists", "থেরাপিস্টদের জন্য")}</Link>
-          <Link href="/open" className="round-next">
-            {t("Open the app", "অ্যাপ খুলুন")}
+          <Link href="#crisis-lines">{t("Need help now", "এখনই সাহায্য দরকার")}</Link>
+          <Link href="#therapists">{t("For therapists", "থেরাপিস্টদের জন্য")}</Link>
+          <Link href="#download" className="round-next">
+            {t("Download the app", "অ্যাপ ডাউনলোড")}
           </Link>
         </nav>
       </header>
@@ -49,13 +49,13 @@ export default function LandingPage() {
             </p>
             <div className="landing-actions">
               <Link
-                href="/ground"
+                href="#crisis-lines"
                 className="landing-action landing-action-quiet"
               >
                 {t("I need help right now", "এই মুহূর্তে আমার সাহায্য দরকার")}
               </Link>
               <Link
-                href="/onboarding"
+                href="#download"
                 className="landing-action landing-action-primary"
               >
                 {t("I'm okay, just exploring", "আমি ঠিক আছি, শুধু দেখছি")}
@@ -128,6 +128,24 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="download" className="border-t border-ink/10 py-16">
+          <p className="kicker">{t("Download", "ডাউনলোড")}</p>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed">
+            {t(
+              "Between ships as a mobile app for iOS and Android. Download links are coming soon.",
+              "Between আসছে iOS আর Android-এর জন্য। ডাউনলোড লিংক শীঘ্রই আসছে।",
+            )}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <span className="inline-flex min-h-11 items-center rounded-full border border-ink px-4 text-sm">
+              {t("App Store (soon)", "অ্যাপ স্টোর (শীঘ্রই)")}
+            </span>
+            <span className="inline-flex min-h-11 items-center rounded-full border border-ink/30 px-4 text-sm">
+              {t("Play Store (soon)", "প্লে স্টোর (শীঘ্রই)")}
+            </span>
+          </div>
+        </section>
+
         <section id="therapists" className="border-t border-ink/10 py-16">
           <p className="kicker">{t("For therapists", "থেরাপিস্টদের জন্য")}</p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed">
@@ -136,9 +154,6 @@ export default function LandingPage() {
               "Between শুধু আমন্ত্রণে। এটা কোনো তালিকা নয়, আর রোগীর সঙ্গে মিলিয়ে দেয় না। ড্যাশবোর্ড আপনি যে কাজ ইতিমধ্যে ধরে আছেন, তার জন্য একটা হাতিয়ার। আপনার বিচার আগে।",
             )}
           </p>
-          <Link href="/therapist" className="mt-6 inline-flex min-h-11 items-center border border-ink px-4 text-sm">
-            {t("Open the therapist demo", "থেরাপিস্ট ডেমো খুলুন")}
-          </Link>
         </section>
 
         <section className="border-t border-ink/10 py-16">
