@@ -134,6 +134,100 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   animation: fs-leaf-breathe 3.8s ease-in-out infinite;
 }
 
+/* 1 · Blinking — the open eyes swap for closed lids */
+.fs-companion .eyes-open,
+.fs-companion .eyes-closed {
+  transition: opacity 90ms linear;
+}
+.fs-companion .eyes-closed { opacity: 0; }
+.fs-companion.is-squint .eyes-open { opacity: 0; }
+.fs-companion.is-squint .eyes-closed { opacity: 1; }
+
+/* 2 · Hover — ears perk, tail swishes, body leans in */
+.fs-companion .fs-ear,
+.fs-companion .fs-tail {
+  transform-box: view-box;
+  transition: transform 280ms var(--ease-entrance);
+}
+.fs-companion .fs-ear-a { transform-origin: 101px 71px; }
+.fs-companion .fs-ear-b { transform-origin: 150px 63px; }
+.fs-companion .fs-tail { transform-origin: 166px 113px; }
+.fs-companion-btn:hover .fs-ear-a { transform: rotate(-10deg); }
+.fs-companion-btn:hover .fs-ear-b { transform: rotate(9deg); }
+.fs-companion-btn:hover .fs-tail { transform: rotate(10deg); }
+.fs-companion-btn:hover .creature-body { transform: scale(1.02); }
+.fs-companion-btn:hover .scene-leaf { fill: rgba(195, 214, 169, 0.5); }
+
+/* 3 · A press is acknowledged — it bounces and a leaf lifts off */
+.fs-companion.is-petted .creature-body { animation: fs-pet 620ms var(--ease-entrance); }
+@keyframes fs-pet {
+  0% { transform: scale(1); }
+  32% { transform: scale(1.07) translateY(-4px); }
+  68% { transform: scale(0.98) translateY(1px); }
+  100% { transform: scale(1); }
+}
+.fs-pop { opacity: 0; }
+.fs-companion.is-petted .fs-pop { animation: fs-leaf-lift 1500ms var(--ease-entrance) forwards; }
+@keyframes fs-leaf-lift {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-16px, -72px) rotate(-130deg); }
+}
+.fs-pop .pop-leaf { fill: rgba(195, 214, 169, 0.85); }
+
+/* 5 · Idle nap — it curls up and sleeps until you move */
+.fs-companion.is-napping .creature-body {
+  transform: scaleY(0.9) translateY(5px);
+  fill: rgba(127, 157, 139, 0.22);
+}
+.fs-companion.is-napping .fs-ear-a { transform: rotate(-16deg); }
+.fs-companion.is-napping .fs-ear-b { transform: rotate(14deg); }
+.fs-companion.is-napping .creature-face { opacity: 0.75; }
+.fs-zzz { opacity: 0; }
+.fs-companion.is-napping .fs-zzz {
+  animation: fs-sleep 2.8s ease-in-out infinite;
+}
+.fs-zzz text {
+  fill: rgba(238, 240, 246, 0.85);
+  font-family: var(--font-onest), "Onest", sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+}
+@keyframes fs-sleep {
+  0% { opacity: 0; transform: translate(0, 0); }
+  30% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(12px, -30px); }
+}
+
+/* 7 · A wave when the page scrolls: the body tilts, the leaf lifts and swings */
+.fs-figure {
+  transform-box: fill-box;
+  transform-origin: 50% 92%;
+}
+.fs-companion.is-waving .fs-figure { animation: fs-wave 1.1s var(--ease-entrance); }
+.fs-companion.is-waving .creature-ear { transform: rotate(-6deg); }
+.fs-companion.is-waving .fs-tail { transform: rotate(14deg); }
+@keyframes fs-wave {
+  0% { transform: translateY(0) rotate(0deg); }
+  22% { transform: translateY(-5px) rotate(-4deg); }
+  48% { transform: translateY(0) rotate(2deg); }
+  74% { transform: translateY(-3px) rotate(-2deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+.fs-wave-leaf { opacity: 0; }
+.fs-companion.is-waving .fs-wave-leaf {
+  animation: fs-leaf-wave 1.1s var(--ease-entrance);
+}
+.fs-wave-leaf .wave-leaf { fill: rgba(195, 214, 169, 0.85); }
+@keyframes fs-leaf-wave {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  20% { opacity: 1; }
+  45% { opacity: 1; transform: translate(14px, -26px) rotate(38deg); }
+  72% { opacity: 1; transform: translate(6px, -34px) rotate(10deg); }
+  100% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+}
+
 @keyframes fs-creature-settle {
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }
   to { opacity: 1; transform: none; }
@@ -431,12 +525,27 @@ html[lang="bn"] .fs-serif { font-family: var(--font-bn), "Noto Sans Bengali", se
   left: var(--gutter);
   bottom: 2.5rem;
   z-index: 12;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 @media (min-width: 640px) { .fs-hero-creature { bottom: 3.25rem; } }
 @media (max-width: 560px) {
   .fs-hero-creature { bottom: 5.75rem; opacity: 0.5; }
   .fs-companion { width: 6.5rem; }
+}
+
+.fs-companion-btn {
+  display: block;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 1.25rem;
+}
+.fs-companion-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.75);
+  outline-offset: 6px;
 }
 
 /* ── Reveals ──────────────────────────────────────────────────────── */
@@ -957,5 +1066,19 @@ html[lang="bn"] .fs-closing p { font-size: clamp(1.4rem, 4vw, 2.5rem); line-heig
   }
   .fs-step-detail,
   .fs-tile-detail { transition: none !important; }
-
+  .fs-companion .eyes-open,
+  .fs-companion .eyes-closed,
+  .fs-companion .fs-ear,
+  .fs-companion .fs-tail,
+  .fs-companion .fs-figure,
+  .fs-companion .creature-body { transition: none !important; }
+  .fs-companion.is-petted .creature-body,
+  .fs-companion.is-petted .fs-pop,
+  .fs-companion.is-napping .fs-zzz,
+  .fs-companion.is-waving .fs-figure,
+  .fs-companion.is-waving .fs-wave-leaf,
+  .fs-companion.is-joyful .leaf-one,
+  .fs-companion.is-joyful .leaf-two { animation: none !important; }
+  .fs-pop,
+  .fs-wave-leaf { display: none; }
 }
