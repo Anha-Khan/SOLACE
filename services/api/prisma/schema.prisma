@@ -1,0 +1,656 @@
+// Between backend data model.
+// Phase 2 of docs/plan-backend.md. Every entity the safety, privacy and
+// clinical rules depend on lives here. Append-only tables are enforced by
+// database grants in the follow-up migration (Global Rule 5), not only in code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Used by the CLI (migrate/seed) only. The runtime client always overrides
+  // this with DATABASE_URL (the restricted application role).
+  url      = env("MIGRATION_DATABASE_URL")
+}
+
+enum Role {
+  patient
+  therapist
+  safety_team
+}
+
+enum UserStatus {
+  active
+  suspended
+  deletion_pending
+  deleted
+}
+
+enum AlertState {
+  detected
+  dispatched
+  delivered
+  acknowledged
+  patient_contacted
+  resolved
+  closed
+}
+
+enum CrisisTier {
+  tier1
+  tier2
+  tier3
+  possible_concern
+}
+
+enum CrisisTrigger {
+  tier3_explicit_language
+  tier2_ai_signal
+  tier1_ai_signal
+  self_initiated
+  survey_item9
+  possible_concern
+}
+
+enum ConsentItem {
+  mood_task_data
+  journal_storage
+  journal_ai_analysis
+  crisis_detection
+  tier3_therapist_alert
+  therapist_data_sharing
+}
+
+enum ConsentSource {
+  onboarding
+  settings
+  withdrawal_confirmed
+}
+
+enum RestrictionLevel {
+  none
+  level1
+  level2
+  level3
+}
+
+enum Stage {
+  stage1
+  stage2
+  stage3
+}
+
+enum ConnectionState {
+  pending_therapist
+  awaiting_patient_confirmation
+  active
+  ended
+  flagged_wrong
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  expired_grace
+  suspended
+  revoked
+}
+
+enum JournalKind {
+  recovery
+  personal
+}
+
+enum JournalPrivacy {
+  hidden_from_therapist
+  progress_only
+  full_access
+}
+
+enum AnalysisStatus {
+  pending
+  queued
+  succeeded
+  failed
+}
+
+enum SentimentSignal {
+  positive
+  neutral
+  negative
+  crisis
+}
+
+enum TaskStatus {
+  approved
+  paused
+  removed
+}
+
+enum SurveyStatus {
+  in_progress
+  completed
+}
+
+enum RequestStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+enum SafetyFlagReason {
+  analysis_failed
+  possible_concern
+  wrong_connection
+  bulk_export_anomaly
+  sms_delivery_failed
+}
+
+enum NotificationType {
+  crisis_alert
+  daily_checkin
+  task_reminder
+  inactivity
+  connection_update
+}
+
+model User {
+  id             String     @id @default(uuid()) @db.Uuid
+  role           Role
+  status         UserStatus @default(active)
+  ageConfirmedAt DateTime?  @map("age_confirmed_at")
+  deletedAt      DateTime?  @map("deleted_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  sessions                Session[]
+  consentRecords          ConsentRecord[]
+  surveyResponses         SurveyResponse[]
+  surveyResults           SurveyResult[]
+  safetyPlan              SafetyPlan?
+  checkIns                CheckIn[]
+  taskAssignments         TaskAssignment[]
+  journalEntries          JournalEntry[]
+  crisisEvents            CrisisEvent[]
+  crisisAlerts            CrisisAlert[]
+  therapistProfile        TherapistProfile?
+  invitesSent             Invite[]             @relation("InviteTherapistEmail")
+  invitesAsPatient        Invite[]             @relation("InvitePatient")
+  connectionsAsPatient    Connection[]         @relation("PatientConnections")
+  connectionsAsTherapist Connection[]         @relation("TherapistConnections")
+  accessLogAsPatient      AccessLogEntry[]     @relation("PatientAccessLog")
+  accessLogAsViewer       AccessLogEntry[]     @relation("ViewerAccessLog")
+  restrictionState        RestrictionState?
+  stageState              StageState?
+  deviceTokens            DeviceToken[]
+  notificationPreferences NotificationPreference[]
+  deletionRequests        DeletionRequest[]
+  exportRequests          ExportRequest[]
+  safetyTeamFlags         SafetyTeamFlag[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  deviceLabel      String?   @map("device_label")
+  lastSeenAt       DateTime  @default(now()) @map("last_seen_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+/// Append-only.
+model ConsentRecord {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  item       ConsentItem
+  granted    Boolean
+  source     ConsentSource
+  appVersion String?       @map("app_version")
+  recordedAt DateTime      @default(now()) @map("recorded_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, item, recordedAt])
+  @@map("consent_records")
+}
+
+model Survey {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  title     String
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  responses SurveyResponse[]
+  results   SurveyResult[]
+
+  @@map("surveys")
+}
+
+model SurveyResponse {
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  surveyId         String       @map("survey_id") @db.Uuid
+  clientId         String       @map("client_id") @db.Uuid
+  responses        Json
+  status           SurveyStatus @default(in_progress)
+  clientCreatedAt  DateTime     @map("client_created_at")
+  serverReceivedAt DateTime     @default(now()) @map("server_received_at")
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey  Survey         @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  result  SurveyResult?
+
+  @@unique([userId, clientId])
+  @@index([userId, surveyId])
+  @@map("survey_responses")
+}
+
+model SurveyResult {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  surveyId   String   @map("survey_id") @db.Uuid
+  responseId String   @unique @map("response_id") @db.Uuid
+  scores     Json
+  totalScore Int      @map("total_score")
+  /// PHQ-9 item 9 is recorded separately (OD-10): possible concern, never a Tier 3 alert.
+  phq9Item9  Int?     @map("phq9_item9")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey   Survey         @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("survey_results")
+}
+
+model SafetyPlan {
+  id                        String   @id @default(uuid()) @db.Uuid
+  userId                    String   @unique @map("user_id") @db.Uuid
+  /// Fields 1, 2, 3 and 5 are encrypted text. Field 4 is always excluded from sharing.
+  field1Ciphertext          String?  @map("field1_ciphertext")
+  field2Ciphertext          String?  @map("field2_ciphertext")
+  field3Ciphertext          String?  @map("field3_ciphertext")
+  field4Ciphertext          String?  @map("field4_ciphertext")
+  field5Ciphertext          String?  @map("field5_ciphertext")
+  sharedWithTherapist       Boolean  @default(false) @map("shared_with_therapist")
+  keyId                     String   @map("key_id")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("safety_plans")
+}
+
+model CheckIn {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  clientId         String   @map("client_id") @db.Uuid
+  mood             Int
+  feelingWords     String[] @map("feeling_words")
+  bodySignal       String?  @map("body_signal")
+  taskReflection   String?  @map("task_reflection")
+  clientCreatedAt  DateTime @map("client_created_at")
+  serverReceivedAt DateTime @default(now()) @map("server_received_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId, createdAt])
+  @@map("check_ins")
+}
+
+model TaskLibraryItem {
+  id                String     @id @default(uuid()) @db.Uuid
+  key               String
+  version           Int        @default(1)
+  stage             Stage
+  category          String
+  eligibility       Json
+  reviewerSignOffId String?    @map("reviewer_sign_off_id")
+  status            TaskStatus @default(approved)
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  @@unique([key, version])
+  @@index([stage, status])
+  @@map("task_library_items")
+}
+
+model TaskAssignment {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  taskKey     String    @map("task_key")
+  assignedFor DateTime  @map("assigned_for") @db.Date
+  completedAt DateTime? @map("completed_at")
+  helpRating  Int?      @map("help_rating")
+  swapReason  String?   @map("swap_reason")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, assignedFor])
+  @@index([userId, assignedFor])
+  @@map("task_assignments")
+}
+
+model JournalEntry {
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @map("user_id") @db.Uuid
+  kind             JournalKind
+  clientId         String         @map("client_id") @db.Uuid
+  ciphertext       String
+  keyId            String         @map("key_id")
+  clientCreatedAt  DateTime       @map("client_created_at")
+  serverReceivedAt DateTime       @default(now()) @map("server_received_at")
+  analysisStatus   AnalysisStatus @default(pending) @map("analysis_status")
+  historical       Boolean        @default(false)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiScans  AiScan[]
+  events   CrisisEvent[]
+
+  @@unique([userId, clientId])
+  @@index([userId, kind, createdAt])
+  @@map("journal_entries")
+}
+
+/// Append-only. Metadata only: never contains journal text (B07).
+model AiScan {
+  id              String          @id @default(uuid()) @db.Uuid
+  entryId         String          @map("entry_id") @db.Uuid
+  analysisAt      DateTime        @default(now()) @map("analysis_at")
+  provider        String
+  sentimentSignal SentimentSignal @map("sentiment_signal")
+  crisisDetected  Boolean         @map("crisis_detected")
+  durationMs      Int             @map("duration_ms")
+  status          AnalysisStatus
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@map("ai_scans")
+}
+
+/// Append-only, kept 24 months.
+model CrisisEvent {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  tier             CrisisTier
+  triggerType      CrisisTrigger @map("trigger_type")
+  ruleVersion      String        @map("rule_version")
+  sourceRef        String?       @map("source_ref")
+  entryId          String?       @map("entry_id") @db.Uuid
+  clientCreatedAt  DateTime      @map("client_created_at")
+  serverReceivedAt DateTime      @default(now()) @map("server_received_at")
+  historical       Boolean       @default(false)
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  entry JournalEntry? @relation(fields: [entryId], references: [id], onDelete: SetNull)
+  alert CrisisAlert?
+
+  @@index([userId, createdAt])
+  @@index([tier, createdAt])
+  @@map("crisis_events")
+}
+
+model CrisisAlert {
+  id                String     @id @default(uuid()) @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  crisisEventId     String     @unique @map("crisis_event_id") @db.Uuid
+  state             AlertState @default(detected)
+  escalatedExternal Boolean    @default(false) @map("escalated_external")
+  reviewedAt        DateTime?  @map("reviewed_at")
+  undoDeadline      DateTime?  @map("undo_deadline")
+  checklist         Json
+  resolvedAt        DateTime?  @map("resolved_at")
+  autoClosedAt      DateTime?  @map("auto_closed_at")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  event  CrisisEvent   @relation(fields: [crisisEventId], references: [id], onDelete: Restrict)
+  events AlertEvent[]
+
+  @@index([state])
+  @@index([userId, createdAt])
+  @@index([state, createdAt])
+  @@map("crisis_alerts")
+}
+
+/// Append-only. The full state history of an alert.
+model AlertEvent {
+  id         String     @id @default(uuid()) @db.Uuid
+  alertId    String     @map("alert_id") @db.Uuid
+  fromState  AlertState? @map("from_state")
+  toState    AlertState  @map("to_state")
+  actor      String
+  reason     String?
+  at         DateTime   @default(now())
+
+  alert CrisisAlert @relation(fields: [alertId], references: [id], onDelete: Restrict)
+
+  @@index([alertId, at])
+  @@map("alert_events")
+}
+
+model TherapistProfile {
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @unique @map("user_id") @db.Uuid
+  licenceCiphertext String             @map("licence_ciphertext")
+  keyId             String             @map("key_id")
+  professionalBody  String             @map("professional_body")
+  countryOfPractice String             @map("country_of_practice")
+  verificationStatus VerificationStatus @default(pending) @map("verification_status")
+  verifiedAt        DateTime?          @map("verified_at")
+  expiresAt         DateTime?          @map("expires_at")
+  graceEndsAt       DateTime?          @map("grace_ends_at")
+  suspendedAt       DateTime?          @map("suspended_at")
+  responseTimeBand  String?            @map("response_time_band")
+  mfaEnabled        Boolean            @default(false) @map("mfa_enabled")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("therapist_profiles")
+}
+
+model Invite {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  therapistEmail   String   @map("therapist_email")
+  therapistUserId  String?  @map("therapist_user_id") @db.Uuid
+  tokenHash        String   @unique @map("token_hash")
+  patientFirstName String   @map("patient_first_name")
+  expiresAt        DateTime @map("expires_at")
+  status           String   @default("pending")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  patient   User  @relation("InvitePatient", fields: [patientId], references: [id], onDelete: Cascade)
+  therapist User? @relation("InviteTherapistEmail", fields: [therapistUserId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, status])
+  @@index([therapistEmail])
+  @@map("invites")
+}
+
+model Connection {
+  id                 String          @id @default(uuid()) @db.Uuid
+  patientId          String          @map("patient_id") @db.Uuid
+  therapistId        String          @map("therapist_id") @db.Uuid
+  state              ConnectionState
+  confirmedAt        DateTime?       @map("confirmed_at")
+  endedAt            DateTime?       @map("ended_at")
+  wrongConnectionFlag Boolean        @default(false) @map("wrong_connection_flag")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  patient   User @relation("PatientConnections", fields: [patientId], references: [id], onDelete: Cascade)
+  therapist User @relation("TherapistConnections", fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, state])
+  @@index([therapistId, state])
+  @@map("connections")
+}
+
+/// Append-only. Timestamp and data type only, never content.
+model AccessLogEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @map("patient_id") @db.Uuid
+  viewerId  String   @map("viewer_id") @db.Uuid
+  dataType  String   @map("data_type")
+  at        DateTime @default(now())
+
+  patient User @relation("PatientAccessLog", fields: [patientId], references: [id], onDelete: Restrict)
+  viewer  User @relation("ViewerAccessLog", fields: [viewerId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, at])
+  @@map("access_log")
+}
+
+model RestrictionState {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @unique @map("user_id") @db.Uuid
+  level           RestrictionLevel @default(none)
+  timerStartedAt  DateTime?        @map("timer_started_at")
+  pausedAt        DateTime?        @map("paused_at")
+  pausedDaysTotal Int              @default(0) @map("paused_days_total")
+  invitePending   Boolean          @default(false) @map("invite_pending")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("restriction_states")
+}
+
+/// Internal only. Never returned to a patient. Separate from restriction on purpose.
+model StageState {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  stage             Stage    @default(stage1)
+  approvalHoldUntil DateTime? @map("approval_hold_until")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("stage_states")
+}
+
+model Resource {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  number         String
+  hours          String
+  ownerName      String   @map("owner_name")
+  lastVerifiedAt DateTime @map("last_verified_at")
+  isEmergency    Boolean  @default(false) @map("is_emergency")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("resources")
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  fcmToken   String   @unique @map("fcm_token")
+  platform   String
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model NotificationPreference {
+  id      String           @id @default(uuid()) @db.Uuid
+  userId  String           @map("user_id") @db.Uuid
+  type    NotificationType
+  enabled Boolean          @default(true)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
+}
+
+model DeletionRequest {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  status          RequestStatus @default(pending)
+  referenceNumber String        @unique @map("reference_number")
+  requestedAt     DateTime      @default(now()) @map("requested_at")
+  confirmedAt     DateTime?     @map("confirmed_at")
+  completedAt     DateTime?     @map("completed_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("deletion_requests")
+}
+
+model ExportRequest {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  status      RequestStatus @default(pending)
+  requestedAt DateTime      @default(now()) @map("requested_at")
+  completedAt DateTime?     @map("completed_at")
+  expiresAt   DateTime?     @map("expires_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("export_requests")
+}
+
+/// Append-only.
+model SafetyTeamFlag {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  reason     SafetyFlagReason
+  resolvedBy String?          @map("resolved_by") @db.Uuid
+  resolvedAt DateTime?        @map("resolved_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([reason, createdAt])
+  @@map("safety_team_flags")
+}

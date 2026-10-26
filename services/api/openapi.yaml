@@ -1,0 +1,2611 @@
+openapi: 3.1.0
+info:
+  title: Between API
+  version: 0.1.0
+  description: |
+    Backend for Between, a trauma-recovery companion app.
+
+    Every response uses one envelope. Every timestamp is UTC ISO-8601. Every
+    device-originated create carries a `clientId`; resubmitting the same
+    `clientId` returns the original result with HTTP 200 and `duplicate: true`.
+
+    This contract is the interface between the backend and the Flutter client.
+    An endpoint, field or enum value may not change without a pull request that
+    changes this file and is reviewed by both owners (ADR-2).
+
+    Status: v0.1 candidate. Requires Person B review before the `contract-v0.1` tag.
+  contact:
+    name: Between backend owner
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.example.invalid
+    description: Placeholder. Hosting is undecided (OD-8)
+tags:
+  - name: Health
+  - name: Auth
+  - name: Consent
+  - name: Surveys
+  - name: Safety plan
+  - name: Devices
+  - name: Crisis
+  - name: Sync
+  - name: Therapist onboarding
+  - name: Invites and connections
+  - name: Therapist alerts
+  - name: Therapist patients
+  - name: Tasks and check-ins
+  - name: Journals
+  - name: Status
+  - name: Privacy
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Liveness. No dependencies checked.
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEnvelope'
+  /ready:
+    get:
+      tags: [Health]
+      operationId: getReady
+      summary: Readiness. Checks PostgreSQL and Redis.
+      security: []
+      responses:
+        '200':
+          description: Dependencies reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyEnvelope'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
+
+  /v1/auth/signup:
+    post:
+      tags: [Auth]
+      operationId: signup
+      summary: Create a patient account. Age 18+ is enforced server-side (OD-3).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            example:
+              email: user@example.com
+              password: correct-horse-battery-staple
+              ageConfirmed: true
+              appVersion: 1.0.0
+      responses:
+        '201':
+          description: Account and first session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Exchange credentials for an access and refresh token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refresh
+      summary: Rotate a refresh token. Reuse revokes the whole session family.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke the current session.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/auth/sessions:
+    get:
+      tags: [Auth]
+      operationId: listSessions
+      summary: List active sessions for the current user.
+      responses:
+        '200':
+          description: Session list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SessionSummary'
+  /v1/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      operationId: revokeSession
+      summary: Revoke one session by id.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: The authenticated user. The client routes on `role`.
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/consents:
+    get:
+      tags: [Consent]
+      operationId: listConsents
+      summary: Current consent state for every item.
+      responses:
+        '200':
+          description: Consent state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConsentState'
+  /v1/consents/{item}:
+    put:
+      tags: [Consent]
+      operationId: setConsent
+      summary: Grant or refuse one consent item.
+      parameters:
+        - $ref: '#/components/parameters/ConsentItemPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [granted]
+              properties:
+                granted:
+                  type: boolean
+                appVersion:
+                  type: string
+      responses:
+        '200':
+          description: New consent state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConsentState'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+  /v1/consents/crisis-monitoring/withdrawals:
+    post:
+      tags: [Consent]
+      operationId: startCrisisMonitoringWithdrawal
+      summary: Step 1 of withdrawing crisis monitoring.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId]
+              properties:
+                clientId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Withdrawal started, awaiting confirmation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WithdrawalRequest'
+  /v1/consents/crisis-monitoring/withdrawals/{id}/confirm:
+    post:
+      tags: [Consent]
+      operationId: confirmCrisisMonitoringWithdrawal
+      summary: Step 2. Without this, monitoring stays ON (R-CONSENT-3, S14).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Monitoring is OFF
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConsentState'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+  /v1/consents/history:
+    get:
+      tags: [Consent]
+      operationId: consentHistory
+      summary: Append-only consent history.
+      responses:
+        '200':
+          description: Consent records, newest first
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConsentState'
+
+  /v1/surveys/{id}:
+    get:
+      tags: [Surveys]
+      operationId: getSurvey
+      summary: Survey definition and items.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Survey
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Survey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/surveys/{id}/responses:
+    post:
+      tags: [Surveys]
+      operationId: submitSurveyResponses
+      summary: Save item-level answers. Idempotent on `clientId`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurveyResponsesRequest'
+      responses:
+        '201':
+          description: Responses saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SurveyResponse'
+  /v1/surveys/{id}/complete:
+    post:
+      tags: [Surveys]
+      operationId: completeSurvey
+      summary: Score and complete a survey. PHQ-9 item 9 becomes a possible concern (OD-10).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [responseId]
+              properties:
+                responseId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Scored result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SurveyResult'
+  /v1/surveys/results:
+    get:
+      tags: [Surveys]
+      operationId: listSurveyResults
+      summary: Survey results for the current patient.
+      responses:
+        '200':
+          description: Results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SurveyResult'
+  /v1/surveys/retake:
+    post:
+      tags: [Surveys]
+      operationId: retakeSurvey
+      summary: Request a retake. Rejected inside the 14-day cooldown.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [surveyKey]
+              properties:
+                surveyKey:
+                  type: string
+      responses:
+        '201':
+          $ref: '#/components/responses/EmptySuccess'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/safety-plan:
+    get:
+      tags: [Safety plan]
+      operationId: getSafetyPlan
+      summary: The patient's own safety plan. Field 4 is never shared.
+      responses:
+        '200':
+          description: Safety plan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SafetyPlan'
+    put:
+      tags: [Safety plan]
+      operationId: replaceSafetyPlan
+      summary: Replace the safety plan fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyPlanFields'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SafetyPlan'
+  /v1/safety-plan/fields/{n}:
+    put:
+      tags: [Safety plan]
+      operationId: setSafetyPlanField
+      summary: Update one field. Field 4 is stored but always excluded from sharing.
+      parameters:
+        - $ref: '#/components/parameters/FieldPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SafetyPlan'
+  /v1/safety-plan/sharing:
+    put:
+      tags: [Safety plan]
+      operationId: setSafetyPlanSharing
+      summary: Share or stop sharing fields 1, 2, 3 and 5 with the therapist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sharedWithTherapist]
+              properties:
+                sharedWithTherapist:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SafetyPlan'
+
+  /v1/devices:
+    post:
+      tags: [Devices]
+      operationId: registerDevice
+      summary: Register an FCM token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken, platform]
+              properties:
+                fcmToken:
+                  type: string
+                platform:
+                  type: string
+                  enum: [android, ios]
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DeviceSummary'
+  /v1/devices/{id}:
+    delete:
+      tags: [Devices]
+      operationId: unregisterDevice
+      summary: Remove a device token.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/notification-preferences:
+    get:
+      tags: [Devices]
+      operationId: getNotificationPreferences
+      summary: Notification preferences. Crisis types cannot be disabled.
+      responses:
+        '200':
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationPreference'
+  /v1/notification-preferences/{type}:
+    put:
+      tags: [Devices]
+      operationId: setNotificationPreference
+      summary: Enable or disable one notification type.
+      parameters:
+        - $ref: '#/components/parameters/NotificationTypePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NotificationPreference'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/crisis/checks:
+    post:
+      tags: [Crisis]
+      operationId: checkCrisis
+      summary: |
+        Synchronous crisis check. Target p95 under 2 seconds. Tier 3 is decided by
+        the rule-based detector and never waits for the AI (ADR-4). Never rate-limited
+        and never returns 503 for a Tier 3 decision (Global Rules 8 and 11).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrisisCheckRequest'
+      responses:
+        '200':
+          description: Decision returned
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CrisisDecision'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/crisis/self-initiated:
+    post:
+      tags: [Crisis]
+      operationId: selfInitiatedCrisis
+      summary: The patient asks for help. Always accepted while authenticated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId]
+              properties:
+                clientId:
+                  type: string
+                  format: uuid
+                clientCreatedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CrisisDecision'
+  /v1/crisis/alerts/{id}/patient-consent:
+    post:
+      tags: [Crisis]
+      operationId: answerTier2Consent
+      summary: Answer the Tier 2 consent prompt. No detail is sent on refusal (S3).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [granted]
+              properties:
+                granted:
+                  type: boolean
+      responses:
+        '200':
+          description: Consent recorded and alert updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CrisisAlertSummary'
+  /v1/crisis/resources:
+    get:
+      tags: [Crisis]
+      operationId: getCrisisResources
+      summary: Bundled crisis resources. Works without a valid token (S22).
+      security: []
+      responses:
+        '200':
+          description: Resources with verification dates
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Resource'
+
+  /v1/sync/items:
+    post:
+      tags: [Sync]
+      operationId: syncItems
+      summary: Batch-sync offline items. Each item is accepted, duplicate, historical_flagged or rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 50
+                  items:
+                    $ref: '#/components/schemas/SyncItem'
+      responses:
+        '200':
+          description: Per-item results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [results]
+                        properties:
+                          results:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/SyncResult'
+
+  /v1/therapist/onboarding:
+    post:
+      tags: [Therapist onboarding]
+      operationId: therapistOnboarding
+      summary: Create a therapist profile after accepting an invite. Never open signup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [licenceNumber, professionalBody, countryOfPractice]
+              properties:
+                licenceNumber:
+                  type: string
+                professionalBody:
+                  type: string
+                countryOfPractice:
+                  type: string
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        '201':
+          description: Profile created, verification pending
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TherapistProfile'
+  /v1/therapist/acknowledgements:
+    post:
+      tags: [Therapist onboarding]
+      operationId: acknowledgeTherapistTerms
+      summary: Record DSA, crisis responsibility and emergency statement acknowledgements.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dsa, crisisResponsibilities, emergencyStatement]
+              properties:
+                dsa:
+                  type: boolean
+                crisisResponsibilities:
+                  type: boolean
+                emergencyStatement:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /v1/patient/invites:
+    post:
+      tags: [Invites and connections]
+      operationId: createInvite
+      summary: Invite a therapist by email. Expires after 48 hours (OD-2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [therapistEmail, patientFirstName]
+              properties:
+                therapistEmail:
+                  type: string
+                  format: email
+                patientFirstName:
+                  type: string
+                  maxLength: 80
+      responses:
+        '201':
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/InviteSummary'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/therapist/invites/accept:
+    post:
+      tags: [Invites and connections]
+      operationId: acceptInvite
+      summary: Accept an invite. No patient data is visible until the patient confirms (S18).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Invite accepted, connection awaiting patient confirmation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConnectionSummary'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/patient/connections/pending:
+    get:
+      tags: [Invites and connections]
+      operationId: listPendingConnections
+      summary: Connections waiting for the patient's confirmation.
+      responses:
+        '200':
+          description: Pending connections
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConnectionSummary'
+  /v1/patient/connections/{id}/confirm:
+    post:
+      tags: [Invites and connections]
+      operationId: confirmConnection
+      summary: The patient confirms. The only transition to `active`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Connection active
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConnectionSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/patient/connections/{id}/decline:
+    post:
+      tags: [Invites and connections]
+      operationId: declineConnection
+      summary: The patient declines. Nothing is ever visible (S19).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/patient/connections/{id}/flag-wrong:
+    post:
+      tags: [Invites and connections]
+      operationId: flagWrongConnection
+      summary: The patient says this is the wrong therapist.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/patient/connections/by-code:
+    post:
+      tags: [Invites and connections]
+      operationId: connectByCode
+      summary: Connect with a therapist using an in-app code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Connection created awaiting patient confirmation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConnectionSummary'
+  /v1/patient/connection:
+    delete:
+      tags: [Invites and connections]
+      operationId: endConnection
+      summary: The patient ends the connection. Access stops immediately (R-CONN-1, S21).
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /v1/therapist/alerts:
+    get:
+      tags: [Therapist alerts]
+      operationId: listTherapistAlerts
+      summary: Open and recent alerts for connected patients.
+      responses:
+        '200':
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TherapistAlert'
+  /v1/therapist/alerts/{id}:
+    get:
+      tags: [Therapist alerts]
+      operationId: getTherapistAlert
+      summary: One alert. Requires re-authentication when the session is older than 4 hours (B08, S16).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Alert detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TherapistAlert'
+        '401':
+          $ref: '#/components/responses/ReauthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/therapist/alerts/{id}/review:
+    post:
+      tags: [Therapist alerts]
+      operationId: reviewAlert
+      summary: Mark reviewed. Starts the 60-second undo window.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Reviewed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TherapistAlert'
+        '409':
+          $ref: '#/components/responses/AlertStateInvalid'
+  /v1/therapist/alerts/{id}/review/undo:
+    post:
+      tags: [Therapist alerts]
+      operationId: undoReview
+      summary: Undo the review inside 60 seconds. Escalation continues (S5, S6).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Review undone
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TherapistAlert'
+        '409':
+          $ref: '#/components/responses/UndoWindowClosed'
+  /v1/therapist/alerts/{id}/resolve:
+    post:
+      tags: [Therapist alerts]
+      operationId: resolveAlert
+      summary: Resolve. All three checklist items are required (S7).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveAlertRequest'
+      responses:
+        '200':
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TherapistAlert'
+        '409':
+          $ref: '#/components/responses/AlertStateInvalid'
+
+  /v1/therapist/patients:
+    get:
+      tags: [Therapist patients]
+      operationId: listTherapistPatients
+      summary: Patients grouped by priority. No stage is ever returned.
+      responses:
+        '200':
+          description: Grouped patients
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          needsAttention:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/PatientCard'
+                          checkInWhenYouCan:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/PatientCard'
+                          progressingWell:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/PatientCard'
+                          noRecentActivity:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/PatientCard'
+  /v1/therapist/patients/{id}:
+    get:
+      tags: [Therapist patients]
+      operationId: getTherapistPatient
+      summary: One patient. 404 when there is no active connection, never 403 (no existence leak).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Patient detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PatientDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/therapist/patients/{id}/summary:
+    get:
+      tags: [Therapist patients]
+      operationId: getPatientSummary
+      summary: Weekly summary with the clinical-judgment disclaimer as a required field.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PatientSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/therapist/patients/{id}/stage-approvals:
+    post:
+      tags: [Therapist patients]
+      operationId: approveStageChange
+      summary: Approve or hold a recommended stage change. Stage is never sent to the patient.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approved]
+              properties:
+                approved:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/today:
+    get:
+      tags: [Tasks and check-ins]
+      operationId: getToday
+      summary: Today's task, check-in state and swap availability.
+      responses:
+        '200':
+          description: Today
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Today'
+  /v1/tasks/{id}/complete:
+    post:
+      tags: [Tasks and check-ins]
+      operationId: completeTask
+      summary: Mark today's task complete.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TaskAssignment'
+  /v1/today/swap:
+    post:
+      tags: [Tasks and check-ins]
+      operationId: swapTask
+      summary: Swap today's task. At most one swap per day (R-SWAP-1).
+      responses:
+        '200':
+          description: Swapped
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TaskAssignment'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/tasks/{id}/feedback:
+    post:
+      tags: [Tasks and check-ins]
+      operationId: taskFeedback
+      summary: Rate how much the task helped.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [helpRating]
+              properties:
+                helpRating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/tasks/{id}/why:
+    get:
+      tags: [Tasks and check-ins]
+      operationId: explainTask
+      summary: Why this task was chosen. No clinical reasoning is exposed.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Explanation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TaskExplanation'
+  /v1/check-ins:
+    post:
+      tags: [Tasks and check-ins]
+      operationId: createCheckIn
+      summary: Daily check-in. Idempotent on `clientId` (S9).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInRequest'
+      responses:
+        '201':
+          description: Check-in saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CheckIn'
+    get:
+      tags: [Tasks and check-ins]
+      operationId: listCheckIns
+      summary: Recent check-ins for the mood series.
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        '200':
+          description: Check-ins
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CheckIn'
+
+  /v1/journal/{kind}/entries:
+    post:
+      tags: [Journals]
+      operationId: createJournalEntry
+      summary: Save an entry. Always succeeds, even while the AI is down (B02, S8).
+      parameters:
+        - $ref: '#/components/parameters/JournalKindPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalEntryRequest'
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/JournalEntry'
+    get:
+      tags: [Journals]
+      operationId: listJournalEntries
+      summary: Entries for one journal kind.
+      parameters:
+        - $ref: '#/components/parameters/JournalKindPath'
+      responses:
+        '200':
+          description: Entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JournalEntry'
+  /v1/journal/privacy:
+    put:
+      tags: [Journals]
+      operationId: setJournalPrivacy
+      summary: Set journal privacy. Monitoring cannot be OFF while the journal is hidden (R-CONSENT-2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [privacy]
+              properties:
+                privacy:
+                  $ref: '#/components/schemas/JournalPrivacy'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+
+  /v1/status:
+    get:
+      tags: [Status]
+      operationId: getStatus
+      summary: Restriction level and copy key. Never returns stage.
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Status'
+
+  /v1/privacy/access-log:
+    get:
+      tags: [Privacy]
+      operationId: getAccessLog
+      summary: Forward-only, append-only view of who opened what.
+      responses:
+        '200':
+          description: Access log
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AccessLogEntry'
+  /v1/privacy/exports:
+    post:
+      tags: [Privacy]
+      operationId: requestExport
+      summary: Request a data export. Therapist MFA is required for therapist exports.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId]
+              properties:
+                clientId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Export requested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExportRequest'
+  /v1/privacy/exports/{id}:
+    get:
+      tags: [Privacy]
+      operationId: getExport
+      summary: Export status.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExportRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/privacy/pause:
+    post:
+      tags: [Privacy]
+      operationId: pauseProcessing
+      summary: Account becomes read-only. Crisis monitoring follows the consent state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paused]
+              properties:
+                paused:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+  /v1/account/deletion-requests:
+    post:
+      tags: [Privacy]
+      operationId: requestDeletion
+      summary: Step 1 of deletion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId]
+              properties:
+                clientId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Deletion requested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DeletionRequest'
+  /v1/account/deletion-requests/{id}/confirm:
+    post:
+      tags: [Privacy]
+      operationId: confirmDeletion
+      summary: Step 2 of deletion.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Deletion confirmed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DeletionRequest'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ConsentItemPath:
+      name: item
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ConsentItem'
+    FieldPath:
+      name: n
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 5
+    JournalKindPath:
+      name: kind
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/JournalKind'
+    NotificationTypePath:
+      name: type
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/NotificationType'
+
+  responses:
+    EmptySuccess:
+      description: Success with null data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmptyEnvelope'
+    ValidationFailed:
+      description: Input did not match the contract
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            data: null
+            timestamp: '2026-10-23T00:00:00.000Z'
+            error:
+              code: VALIDATION_FAILED
+              message: 'email: must be an email'
+    Unauthenticated:
+      description: Missing or expired access token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ReauthRequired:
+      description: Therapist session older than 4 hours
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            data: null
+            timestamp: '2026-10-23T00:00:00.000Z'
+            error:
+              code: REAUTH_REQUIRED
+              message: Re-authenticate before opening an alert
+    Forbidden:
+      description: Role or connection does not allow this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConsentRequired:
+      description: A required consent item is not granted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Resource does not exist or is not visible to this caller
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: Business rule conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    AlertStateInvalid:
+      description: Transition not allowed from the current alert state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UndoWindowClosed:
+      description: The 60-second undo has passed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimited:
+      description: Too many requests. Never returned by crisis endpoints.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    DependencyUnavailable:
+      description: A required dependency is down
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data, timestamp, error]
+      properties:
+        success:
+          type: boolean
+          const: true
+        data: {}
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: 'null'
+    EmptyEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: 'null'
+    ErrorEnvelope:
+      type: object
+      required: [success, data, timestamp, error]
+      properties:
+        success:
+          type: boolean
+          const: false
+        data:
+          type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+    HealthEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [status, version]
+              properties:
+                status:
+                  type: string
+                  const: ok
+                version:
+                  type: string
+    ReadyEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [status, checks, resourcesVerifiedAt]
+              properties:
+                status:
+                  type: string
+                  const: ok
+                checks:
+                  type: object
+                  required: [postgres, redis]
+                  properties:
+                    postgres:
+                      type: string
+                      const: ok
+                    redis:
+                      type: string
+                      const: ok
+                resourcesVerifiedAt:
+                  type: string
+                  format: date-time
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - REAUTH_REQUIRED
+        - FORBIDDEN
+        - CONSENT_REQUIRED
+        - NOT_FOUND
+        - CONFLICT
+        - ALERT_STATE_INVALID
+        - UNDO_WINDOW_CLOSED
+        - RATE_LIMITED
+        - DEPENDENCY_UNAVAILABLE
+        - INTERNAL_ERROR
+
+    Role:
+      type: string
+      enum: [patient, therapist, safety_team]
+    ConsentItem:
+      type: string
+      enum:
+        - mood_task_data
+        - journal_storage
+        - journal_ai_analysis
+        - crisis_detection
+        - tier3_therapist_alert
+        - therapist_data_sharing
+    AlertState:
+      type: string
+      enum: [detected, dispatched, delivered, acknowledged, patient_contacted, resolved, closed]
+    CrisisTier:
+      type: string
+      enum: [tier1, tier2, tier3, possible_concern]
+    RestrictionLevel:
+      type: string
+      enum: [none, level1, level2, level3]
+    ConnectionState:
+      type: string
+      enum: [pending_therapist, awaiting_patient_confirmation, active, ended, flagged_wrong]
+    JournalKind:
+      type: string
+      enum: [recovery, personal]
+    JournalPrivacy:
+      type: string
+      enum: [hidden_from_therapist, progress_only, full_access]
+    NotificationType:
+      type: string
+      enum: [crisis_alert, daily_checkin, task_reminder, inactivity, connection_update]
+
+    SignupRequest:
+      type: object
+      required: [email, password, ageConfirmed]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+          maxLength: 200
+        ageConfirmed:
+          type: boolean
+        appVersion:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        deviceLabel:
+          type: string
+          maxLength: 120
+    AuthTokens:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Access token lifetime in seconds
+        user:
+          $ref: '#/components/schemas/Me'
+    AuthEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AuthTokens'
+    Me:
+      type: object
+      required: [id, role, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/Role'
+        status:
+          type: string
+          enum: [active, suspended, deletion_pending, deleted]
+        createdAt:
+          type: string
+          format: date-time
+    SessionSummary:
+      type: object
+      required: [id, createdAt, lastSeenAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceLabel:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+
+    ConsentState:
+      type: object
+      required: [item, granted, source, recordedAt]
+      properties:
+        item:
+          $ref: '#/components/schemas/ConsentItem'
+        granted:
+          type: boolean
+        source:
+          type: string
+          enum: [onboarding, settings, withdrawal_confirmed]
+        appVersion:
+          type: string
+          nullable: true
+        recordedAt:
+          type: string
+          format: date-time
+    WithdrawalRequest:
+      type: object
+      required: [id, status, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, expired]
+        expiresAt:
+          type: string
+          format: date-time
+
+    Survey:
+      type: object
+      required: [id, key, title, version, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        title:
+          type: string
+        version:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            required: [key, prompt, min, max]
+            properties:
+              key:
+                type: string
+              prompt:
+                type: string
+              min:
+                type: integer
+              max:
+                type: integer
+    SurveyResponsesRequest:
+      type: object
+      required: [clientId, clientCreatedAt, responses]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        responses:
+          type: object
+          additionalProperties:
+            type: integer
+    SurveyResponse:
+      type: object
+      required: [id, surveyId, status, clientId, serverReceivedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        surveyId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [in_progress, completed]
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        serverReceivedAt:
+          type: string
+          format: date-time
+        duplicate:
+          type: boolean
+    SurveyResult:
+      type: object
+      required: [id, surveyId, totalScore, scores, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        surveyId:
+          type: string
+          format: uuid
+        totalScore:
+          type: integer
+        scores:
+          type: object
+          additionalProperties:
+            type: integer
+        possibleConcern:
+          type: boolean
+          description: True only for PHQ-9 item 9 (OD-10). Not a Tier 3 alert.
+        createdAt:
+          type: string
+          format: date-time
+
+    SafetyPlanFields:
+      type: object
+      properties:
+        field1:
+          type: string
+          maxLength: 2000
+        field2:
+          type: string
+          maxLength: 2000
+        field3:
+          type: string
+          maxLength: 2000
+        field4:
+          type: string
+          maxLength: 2000
+        field5:
+          type: string
+          maxLength: 2000
+    SafetyPlan:
+      type: object
+      required: [sharedWithTherapist, updatedAt]
+      properties:
+        field1:
+          type: string
+          nullable: true
+          maxLength: 2000
+        field2:
+          type: string
+          nullable: true
+          maxLength: 2000
+        field3:
+          type: string
+          nullable: true
+          maxLength: 2000
+        field4:
+          type: string
+          nullable: true
+          maxLength: 2000
+        field5:
+          type: string
+          nullable: true
+          maxLength: 2000
+        sharedWithTherapist:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+
+    DeviceSummary:
+      type: object
+      required: [id, platform, lastSeenAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [android, ios]
+        lastSeenAt:
+          type: string
+          format: date-time
+    NotificationPreference:
+      type: object
+      required: [type, enabled, disableable]
+      properties:
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        enabled:
+          type: boolean
+        disableable:
+          type: boolean
+          description: False for crisis types, which cannot be turned off (R-NOTIF-4)
+
+    CrisisCheckRequest:
+      type: object
+      required: [clientId, clientCreatedAt, source, text]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [journal, checkin, task_reflection]
+        text:
+          type: string
+          maxLength: 20000
+        entryId:
+          type: string
+          format: uuid
+    CrisisDecision:
+      type: object
+      required: [tier, showCrisisScreen, alertId, historical]
+      properties:
+        tier:
+          $ref: '#/components/schemas/CrisisTier'
+        showCrisisScreen:
+          type: boolean
+        alertId:
+          type: string
+          format: uuid
+          nullable: true
+        historical:
+          type: boolean
+        duplicate:
+          type: boolean
+        ruleVersion:
+          type: string
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+    CrisisAlertSummary:
+      type: object
+      required: [id, state, tier, createdAt, elapsedSeconds]
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/AlertState'
+        tier:
+          $ref: '#/components/schemas/CrisisTier'
+        escalatedExternal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        elapsedSeconds:
+          type: integer
+    Resource:
+      type: object
+      required: [name, number, hours, lastVerifiedAt, isEmergency]
+      properties:
+        name:
+          type: string
+        number:
+          type: string
+        hours:
+          type: string
+        lastVerifiedAt:
+          type: string
+          format: date-time
+        isEmergency:
+          type: boolean
+
+    SyncItem:
+      type: object
+      required: [clientId, kind, clientCreatedAt, payload]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [check_in, journal_entry, task_completion, survey_response]
+        clientCreatedAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+    SyncResult:
+      type: object
+      required: [clientId, outcome]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum: [accepted, duplicate, historical_flagged, rejected]
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
+    TherapistProfile:
+      type: object
+      required: [id, verificationStatus, professionalBody, countryOfPractice]
+      properties:
+        id:
+          type: string
+          format: uuid
+        verificationStatus:
+          type: string
+          enum: [pending, verified, expired_grace, suspended, revoked]
+        professionalBody:
+          type: string
+        countryOfPractice:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        mfaEnabled:
+          type: boolean
+    InviteSummary:
+      type: object
+      required: [id, status, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    ConnectionSummary:
+      type: object
+      required: [id, state, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/ConnectionState'
+        therapistDisplayName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ResolveAlertRequest:
+      type: object
+      required: [checklist]
+      properties:
+        checklist:
+          type: object
+          required: [patientContacted, safetyAssessed, planAgreed]
+          properties:
+            patientContacted:
+              type: boolean
+            safetyAssessed:
+              type: boolean
+            planAgreed:
+              type: boolean
+    TherapistAlert:
+      type: object
+      required: [id, patientId, state, tier, createdAt, elapsedSeconds, checklist]
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/AlertState'
+        tier:
+          $ref: '#/components/schemas/CrisisTier'
+        escalatedExternal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        elapsedSeconds:
+          type: integer
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        undoDeadline:
+          type: string
+          format: date-time
+          nullable: true
+        checklist:
+          type: object
+          additionalProperties:
+            type: boolean
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              fromState:
+                $ref: '#/components/schemas/AlertState'
+              toState:
+                $ref: '#/components/schemas/AlertState'
+              actor:
+                type: string
+              at:
+                type: string
+                format: date-time
+
+    PatientCard:
+      type: object
+      required: [id, patientId, group, lastCheckInAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        group:
+          type: string
+          enum: [needs_attention, check_in_when_you_can, progressing_well, no_recent_activity]
+        lastCheckInAt:
+          type: string
+          format: date-time
+          nullable: true
+        openAlert:
+          type: boolean
+    PatientDetail:
+      type: object
+      required: [patientId, displayName, connectedSince]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        connectedSince:
+          type: string
+          format: date-time
+        moodSeries:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              mood:
+                type: integer
+        taskCompletionRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        journalSentiment:
+          type: string
+          nullable: true
+          enum: [positive, neutral, negative, crisis]
+    PatientSummary:
+      type: object
+      required: [patientId, body, disclaimer, generatedAt]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        body:
+          type: string
+        disclaimer:
+          type: string
+          description: Required. A summary without this field fails validation.
+        generatedAt:
+          type: string
+          format: date-time
+
+    TaskAssignment:
+      type: object
+      required: [id, taskKey, assignedFor, completedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskKey:
+          type: string
+        title:
+          type: string
+        assignedFor:
+          type: string
+          format: date
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        swapReason:
+          type: string
+          nullable: true
+    Today:
+      type: object
+      required: [task, canSwap, checkInDone]
+      properties:
+        task:
+          $ref: '#/components/schemas/TaskAssignment'
+        canSwap:
+          type: boolean
+        checkInDone:
+          type: boolean
+        reflectionAvailable:
+          type: boolean
+    TaskExplanation:
+      type: object
+      required: [taskKey, reason]
+      properties:
+        taskKey:
+          type: string
+        reason:
+          type: string
+    CheckInRequest:
+      type: object
+      required: [clientId, clientCreatedAt, mood, feelingWords]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        mood:
+          type: integer
+          minimum: 1
+          maximum: 10
+        feelingWords:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+        bodySignal:
+          type: string
+          maxLength: 200
+        taskReflection:
+          type: string
+          maxLength: 2000
+    CheckIn:
+      type: object
+      required: [id, mood, feelingWords, serverReceivedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        mood:
+          type: integer
+        feelingWords:
+          type: array
+          items:
+            type: string
+        bodySignal:
+          type: string
+          nullable: true
+        taskReflection:
+          type: string
+          nullable: true
+        clientCreatedAt:
+          type: string
+          format: date-time
+        serverReceivedAt:
+          type: string
+          format: date-time
+        duplicate:
+          type: boolean
+
+    JournalEntryRequest:
+      type: object
+      required: [clientId, clientCreatedAt, text]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        text:
+          type: string
+          maxLength: 20000
+        analysisAllowed:
+          type: boolean
+          description: Personal journal analysis is crisis-scan only (OD-4)
+    JournalEntry:
+      type: object
+      required: [id, kind, clientId, clientCreatedAt, serverReceivedAt, analysisStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/JournalKind'
+        clientId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+        serverReceivedAt:
+          type: string
+          format: date-time
+        analysisStatus:
+          type: string
+          enum: [pending, queued, succeeded, failed]
+        historical:
+          type: boolean
+        duplicate:
+          type: boolean
+
+    Status:
+      type: object
+      required: [restrictionLevel, copyKey]
+      properties:
+        restrictionLevel:
+          $ref: '#/components/schemas/RestrictionLevel'
+        copyKey:
+          type: string
+        invitePending:
+          type: boolean
+        monitoringOn:
+          type: boolean
+
+    AccessLogEntry:
+      type: object
+      required: [id, viewerRole, dataType, at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        viewerRole:
+          type: string
+          enum: [therapist, safety_team]
+        dataType:
+          type: string
+        at:
+          type: string
+          format: date-time
+    ExportRequest:
+      type: object
+      required: [id, status, requestedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+    DeletionRequest:
+      type: object
+      required: [id, status, referenceNumber, requestedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        referenceNumber:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
