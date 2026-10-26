@@ -7,38 +7,38 @@ them by name.
 
 ## Accounts and sessions
 
-| ID          | Requirement                                                                               | Source        | Status                     |
-| ----------- | ----------------------------------------------------------------------------------------- | ------------- | -------------------------- |
-| REQ-AUTH-01 | A patient can sign up with email and password. Passwords are hashed with argon2id.        | Plan 5, ADR-7 | `[ASSUMPTION]` `[PLANNED]` |
-| REQ-AUTH-02 | Under-18 signup is rejected (OD-3).                                                       | OD-3          | `[PLANNED]`                |
-| REQ-AUTH-03 | Access token 15 min, refresh token 30 days, rotated on every use.                         | ADR-7         | `[PLANNED]`                |
-| REQ-AUTH-04 | Reuse of a rotated refresh token revokes the whole session family.                        | ADR-7         | `[PLANNED]`                |
-| REQ-AUTH-05 | A therapist account can only exist after an invite is accepted. No open therapist signup. | ADR-8         | `[PLANNED]`                |
-| REQ-AUTH-06 | `GET /v1/me` returns the server-assigned role; the client routes on it.                   | ADR-8         | `[PLANNED]`                |
+| ID          | Requirement                                                                               | Source        | Status                                |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------- | ------------------------------------- |
+| REQ-AUTH-01 | A patient can sign up with email and password. Passwords are hashed with argon2id.        | Plan 5, ADR-7 | `[ASSUMPTION]` Implemented (argon2id) |
+| REQ-AUTH-02 | Under-18 signup is rejected (OD-3).                                                       | OD-3          | Implemented                           |
+| REQ-AUTH-03 | Access token 15 min, refresh token 30 days, rotated on every use.                         | ADR-7         | Implemented                           |
+| REQ-AUTH-04 | Reuse of a rotated refresh token revokes the whole session family.                        | ADR-7         | Implemented                           |
+| REQ-AUTH-05 | A therapist account can only exist after an invite is accepted. No open therapist signup. | ADR-8         | `[PLANNED]`                           |
+| REQ-AUTH-06 | `GET /v1/me` returns the server-assigned role; the client routes on it.                   | ADR-8         | Implemented                           |
 
 ## Consent
 
-| ID             | Requirement                                                                                                                              | Source        | Status                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------- |
-| REQ-CONSENT-01 | Consent records are append-only and never deleted.                                                                                       | Global Rule 5 | Implemented (DB grants) |
-| REQ-CONSENT-02 | Withdrawing crisis monitoring needs two confirmation steps.                                                                              | R-CONSENT-3   | `[PLANNED]`             |
-| REQ-CONSENT-03 | Monitoring cannot be OFF while the journal is hidden from the therapist.                                                                 | R-CONSENT-2   | `[PLANNED]`             |
-| REQ-CONSENT-04 | Monitoring OFF grants the therapist read access to the Recovery Journal and notifies the therapist of the state change, with no content. | R-CONSENT-1   | `[PLANNED]`             |
+| ID             | Requirement                                                                                                                              | Source        | Status                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------- |
+| REQ-CONSENT-01 | Consent records are append-only and never deleted.                                                                                       | Global Rule 5 | Implemented (DB grants)                                         |
+| REQ-CONSENT-02 | Withdrawing crisis monitoring needs two confirmation steps.                                                                              | R-CONSENT-3   | Implemented                                                     |
+| REQ-CONSENT-03 | Monitoring cannot be OFF while the journal is hidden from the therapist.                                                                 | R-CONSENT-2   | Implemented (consent path; journal route CP4)                   |
+| REQ-CONSENT-04 | Monitoring OFF grants the therapist read access to the Recovery Journal and notifies the therapist of the state change, with no content. | R-CONSENT-1   | Partial: access flip implemented; therapist notification in CP4 |
 
 ## Surveys
 
-| ID          | Requirement                                                                        | Source  | Status      |
-| ----------- | ---------------------------------------------------------------------------------- | ------- | ----------- |
-| REQ-SURV-01 | Item-level survey responses are stored; scores are computed and stored.            | Phase 2 | `[PLANNED]` |
-| REQ-SURV-02 | PHQ-9 item 9 is recorded and shown as a possible concern, never as Tier 3 (OD-10). | OD-10   | `[PLANNED]` |
-| REQ-SURV-03 | A retake inside 14 days is rejected.                                               | Phase 3 | `[PLANNED]` |
+| ID          | Requirement                                                                        | Source  | Status                                                                |
+| ----------- | ---------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------- |
+| REQ-SURV-01 | Item-level survey responses are stored; scores are computed and stored.            | Phase 2 | Implemented                                                           |
+| REQ-SURV-02 | PHQ-9 item 9 is recorded and shown as a possible concern, never as Tier 3 (OD-10). | OD-10   | Implemented `[ASSUMPTION]`; severity bands wait for clinical sign-off |
+| REQ-SURV-03 | A retake inside 14 days is rejected.                                               | Phase 3 | Implemented                                                           |
 
 ## Safety plan
 
-| ID          | Requirement                                                          | Source  | Status      |
-| ----------- | -------------------------------------------------------------------- | ------- | ----------- |
-| REQ-PLAN-01 | Five fields, encrypted at rest, with a key id.                       | ADR-6   | `[PLANNED]` |
-| REQ-PLAN-02 | Field 4 is never shared with the therapist, even when sharing is on. | Phase 2 | `[PLANNED]` |
+| ID          | Requirement                                                          | Source  | Status                                      |
+| ----------- | -------------------------------------------------------------------- | ------- | ------------------------------------------- |
+| REQ-PLAN-01 | Five fields, encrypted at rest, with a key id.                       | ADR-6   | Implemented (AES-256-GCM, AAD per row)      |
+| REQ-PLAN-02 | Field 4 is never shared with the therapist, even when sharing is on. | Phase 2 | Implemented (therapist view arrives in CP3) |
 
 ## Crisis
 
@@ -55,11 +55,11 @@ them by name.
 
 ## Offline sync
 
-| ID          | Requirement                                                                                                      | Source  | Status         |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- | ------- | -------------- |
-| REQ-SYNC-01 | Dedupe by `clientId`; a repeat returns the original result with `duplicate: true`.                               | Phase 3 | `[PLANNED]`    |
-| REQ-SYNC-02 | Freshness uses the creation timestamp; the window is 2 h (OD-1).                                                 | OD-1    | Config default |
-| REQ-SYNC-03 | Historical entries get a flag, not an escalation timer, but explicit Tier 3 language still notifies once (OD-9). | OD-9    | `[PLANNED]`    |
+| ID          | Requirement                                                                                                      | Source  | Status                                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------- |
+| REQ-SYNC-01 | Dedupe by `clientId`; a repeat returns the original result with `duplicate: true`.                               | Phase 3 | Implemented (survey responses; other writes pending) |
+| REQ-SYNC-02 | Freshness uses the creation timestamp; the window is 2 h (OD-1).                                                 | OD-1    | Config default                                       |
+| REQ-SYNC-03 | Historical entries get a flag, not an escalation timer, but explicit Tier 3 language still notifies once (OD-9). | OD-9    | `[PLANNED]`                                          |
 
 ## Connections
 
@@ -73,14 +73,14 @@ them by name.
 
 ## Tasks, check-ins, journals
 
-| ID           | Requirement                                                                                                      | Source       | Status      |
-| ------------ | ---------------------------------------------------------------------------------------------------------------- | ------------ | ----------- |
-| REQ-TASK-01  | One swap per day.                                                                                                | R-SWAP-1     | `[PLANNED]` |
-| REQ-TASK-02  | Stage 2 tasks unlock only with an active therapist connection.                                                   | R-STAGE-3    | `[PLANNED]` |
-| REQ-TASK-03  | Three low-mood days or three skipped tasks quietly simplify tasks; no announcement.                              | R-SIMPLIFY-1 | `[PLANNED]` |
-| REQ-JOURN-01 | Journal save always succeeds, even when the AI is down; the scan is queued.                                      | Phase 0      | `[PLANNED]` |
-| REQ-JOURN-02 | Journal text and the safety plan are AES-256-GCM encrypted before storage.                                       | ADR-6        | `[PLANNED]` |
-| REQ-JOURN-03 | The Personal Journal is crisis-scan only: no sentiment, no personalisation, never visible to a therapist (OD-4). | OD-4         | `[PLANNED]` |
+| ID           | Requirement                                                                                                      | Source       | Status                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------- |
+| REQ-TASK-01  | One swap per day.                                                                                                | R-SWAP-1     | `[PLANNED]`                                 |
+| REQ-TASK-02  | Stage 2 tasks unlock only with an active therapist connection.                                                   | R-STAGE-3    | `[PLANNED]`                                 |
+| REQ-TASK-03  | Three low-mood days or three skipped tasks quietly simplify tasks; no announcement.                              | R-SIMPLIFY-1 | `[PLANNED]`                                 |
+| REQ-JOURN-01 | Journal save always succeeds, even when the AI is down; the scan is queued.                                      | Phase 0      | `[PLANNED]`                                 |
+| REQ-JOURN-02 | Journal text and the safety plan are AES-256-GCM encrypted before storage.                                       | ADR-6        | Partial: safety plan in CP1; journal in CP4 |
+| REQ-JOURN-03 | The Personal Journal is crisis-scan only: no sentiment, no personalisation, never visible to a therapist (OD-4). | OD-4         | `[PLANNED]`                                 |
 
 ## Restriction and stage
 
@@ -96,13 +96,13 @@ them by name.
 
 ## Privacy, notifications, audit
 
-| ID           | Requirement                                                                         | Source        | Status                          |
-| ------------ | ----------------------------------------------------------------------------------- | ------------- | ------------------------------- |
-| REQ-NOTIF-01 | Max one notification per type per day, two per 24 h, quiet hours 22:00–08:00 local. | R-NOTIF-1     | `[PLANNED]`                     |
-| REQ-NOTIF-02 | Crisis types cannot be disabled.                                                    | R-NOTIF-4     | Implemented (enum guard list)   |
-| REQ-NOTIF-03 | Push payloads carry no mental health content.                                       | R-NOTIF-5     | `[PLANNED]`                     |
-| REQ-AUDIT-01 | Access log records timestamp and data type only, forward-only, append-only.         | R-AUDIT-1     | Implemented (DB grants)         |
-| REQ-PRIV-01  | Deletion is two-step; crisis logs kept 24 months, consent indefinitely.             | R-DELETE-1    | `[PLANNED]`                     |
-| REQ-PRIV-02  | Pause processing makes the account read-only; crisis monitoring follows consent.    | R-PRIVACY-1   | `[PLANNED]`                     |
-| REQ-SEC-01   | No sensitive field reaches a log line, at any depth.                                | Global Rule 4 | Implemented (redaction + tests) |
-| REQ-SEC-02   | No hardcoded secrets; `npm audit --omit=dev` clean of high/critical.                | Phase 10      | `[PLANNED]`                     |
+| ID           | Requirement                                                                         | Source        | Status                                         |
+| ------------ | ----------------------------------------------------------------------------------- | ------------- | ---------------------------------------------- |
+| REQ-NOTIF-01 | Max one notification per type per day, two per 24 h, quiet hours 22:00–08:00 local. | R-NOTIF-1     | `[PLANNED]`                                    |
+| REQ-NOTIF-02 | Crisis types cannot be disabled.                                                    | R-NOTIF-4     | Implemented (403 + non-disableable projection) |
+| REQ-NOTIF-03 | Push payloads carry no mental health content.                                       | R-NOTIF-5     | `[PLANNED]`                                    |
+| REQ-AUDIT-01 | Access log records timestamp and data type only, forward-only, append-only.         | R-AUDIT-1     | Implemented (DB grants)                        |
+| REQ-PRIV-01  | Deletion is two-step; crisis logs kept 24 months, consent indefinitely.             | R-DELETE-1    | `[PLANNED]`                                    |
+| REQ-PRIV-02  | Pause processing makes the account read-only; crisis monitoring follows consent.    | R-PRIVACY-1   | `[PLANNED]`                                    |
+| REQ-SEC-01   | No sensitive field reaches a log line, at any depth.                                | Global Rule 4 | Implemented (redaction + tests)                |
+| REQ-SEC-02   | No hardcoded secrets; `npm audit --omit=dev` clean of high/critical.                | Phase 10      | `[PLANNED]`                                    |

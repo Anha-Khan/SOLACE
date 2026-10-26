@@ -25,8 +25,13 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.client.status !== 'end') {
-      await this.client.quit().catch(() => undefined);
+    // `quit()` would open a connection first if the client is still in `wait`
+    // (lazyConnect and nothing ever used Redis). That socket then keeps the
+    // process alive. A client that never connected needs `disconnect()`.
+    if (this.client.status === 'wait' || this.client.status === 'end') {
+      this.client.disconnect();
+      return;
     }
+    await this.client.quit().catch(() => undefined);
   }
 }

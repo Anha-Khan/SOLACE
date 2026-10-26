@@ -8,15 +8,23 @@ live in the secret manager; `.env` holds development values only.
 
 ## JWT signing secrets
 
-Access tokens expire in 15 minutes, refresh tokens are opaque database rows, so a
-signing-secret change does not invalidate refresh tokens.
+Access tokens expire in 15 minutes. Refresh tokens are signed JWTs whose hash is
+stored in `sessions`, so the two secrets behave differently:
+
+- Rotating `JWT_ACCESS_SECRET` only shortens the life of access tokens. Wait
+  20 minutes (longer than the 15-minute TTL) before removing the old value.
+- Rotating `JWT_REFRESH_SECRET` invalidates **every** refresh token at once,
+  because verification fails before the database hash is checked. Every user must
+  sign in again. Treat it as a user-visible event and prefer the session-revoke
+  path below if only a subset of sessions is suspect.
 
 1. Generate a new secret (`openssl rand -hex 32`).
 2. Add it to the secret manager as the active value and keep the old one listed
-   under a `_PREVIOUS` entry `[PLANNED]` until all access tokens expire.
+   under a `_PREVIOUS` entry `[PLANNED]`.
 3. Deploy. New tokens are signed with the new secret.
-4. Wait 20 minutes (longer than the 15-minute access TTL), then remove the old
-   value.
+4. For the access secret, wait 20 minutes then remove the old value. For the
+   refresh secret, removal is immediate once deployed (all old refresh tokens
+   already fail).
 5. Force re-login only if you suspect compromise: revoke sessions with
    `UPDATE sessions SET revoked_at = now() WHERE revoked_at IS NULL` as the
    **owner** role, and accept that every user must sign in again.

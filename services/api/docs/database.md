@@ -58,8 +58,18 @@ therapist licence number. Each row stores `key_id` so keys can be rotated
 without a flag day. The key itself is resolved from
 `FIELD_ENCRYPTION_KEY_REF`; it is never in the database or the repository.
 
-CP4 builds the `KeyProvider` and the encrypt/decrypt helpers. Until then no code
-writes plaintext to these columns because no code writes them at all.
+CP1 builds the `KeyProvider` and the AES-256-GCM helpers, and uses them for
+safety-plan fields 1–5. The therapist licence number uses them in CP3 and journal
+text in CP4. Key rotation and the re-encryption job are CP4–CP5 work. Every row
+records the `key_id` it was written with, so rotation never needs a flag day.
+Until a column is wired to a repository, no code writes plaintext to it because
+no code writes it at all.
+
+Ciphertext layout is `base64(iv[12] || authTag[16] || ciphertext)`. The AAD binds
+the value to `table:column:row_id`, so copying a ciphertext into another row
+fails to decrypt. The local provider accepts `dev://` and `test://` refs only
+outside production, and `env://VAR` (base64, 32 bytes) anywhere. A KMS adapter is
+blocked on OD-8.
 
 ## Retention and deletion
 

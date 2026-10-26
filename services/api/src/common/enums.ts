@@ -61,6 +61,9 @@ export const ConsentItem = {
 } as const;
 export type ConsentItem = (typeof ConsentItem)[keyof typeof ConsentItem];
 
+/** Stable order for GET /v1/consents. */
+export const CONSENT_ITEMS: readonly ConsentItem[] = Object.values(ConsentItem);
+
 export const ConsentSource = {
   onboarding: 'onboarding',
   settings: 'settings',
@@ -170,8 +173,31 @@ export const NotificationType = {
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
+/** Stable order for GET /v1/notification-preferences. */
+export const NOTIFICATION_TYPES: readonly NotificationType[] = Object.values(NotificationType);
+
+/** Two-step crisis-monitoring withdrawal (R-CONSENT-3). */
+export const WithdrawalStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  cancelled: 'cancelled',
+  expired: 'expired',
+} as const;
+export type WithdrawalStatus = (typeof WithdrawalStatus)[keyof typeof WithdrawalStatus];
+
 /** Crisis notification types can never be disabled by a patient (R-NOTIF-4). */
 export const NON_DISABLEABLE_NOTIFICATION_TYPES: readonly NotificationType[] = [
   NotificationType.crisis_alert,
   NotificationType.connection_update,
 ];
+
+const CONSENT_ITEM_SET: ReadonlySet<string> = new Set(CONSENT_ITEMS);
+const NOTIFICATION_TYPE_SET: ReadonlySet<string> = new Set(NOTIFICATION_TYPES);
+
+export function isConsentItem(value: string): value is ConsentItem {
+  return CONSENT_ITEM_SET.has(value);
+}
+
+export function isNotificationType(value: string): value is NotificationType {
+  return NOTIFICATION_TYPE_SET.has(value);
+}

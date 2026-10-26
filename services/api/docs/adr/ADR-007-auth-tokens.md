@@ -13,12 +13,19 @@ Sessions on shared devices must be revocable and visible.
 
 - Passwords are hashed with argon2id (memory-hard). Never SHA-256, never
   reversible encryption.
-- Access token: JWT, 15 minutes, `sub`, `role`, `sessionId`, `iat`, `exp`. The
-  role is read from the token for routing and re-checked against the database
-  for privileged actions.
-- Refresh token: opaque random value, 30 days, stored as a hash in `sessions`,
-  grouped by `family_id`. Rotated on every use. Reuse of an already-rotated token
-  revokes the whole family (theft detection).
+- Access token: JWT, 15 minutes, `sub`, `sid` (session), `role`, `type: access`,
+  `iat`, `exp`. The role is re-read from the database on every request, so the
+  claim is only a routing hint.
+- Refresh token: JWT, 30 days, `sub`, `sid`, `fid` (family), `type: refresh` and
+  a unique `jti`. Only its SHA-256 hash is stored in `sessions`. Rotated on every
+  use; a token whose hash no longer matches the row is treated as reuse and the
+  whole family is revoked (theft detection).
+  - Deviation from the earlier "opaque random value" wording: `sid`/`fid` must
+    be readable before the database lookup, and a signed token gives that without
+    a second lookup table. The `jti` is required: without it, two rotations in
+    the same second would sign byte-identical tokens and rotation would be a
+    no-op. The hash is still the only stored secret material, so a database leak
+    yields no usable token.
 - Logout revokes one session. The session list endpoint shows device label and
   last seen, and can revoke one or all.
 - Therapist actions on an alert require a session younger than 4 hours

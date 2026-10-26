@@ -17,7 +17,11 @@ the adapters are `[PLANNED]` and are built in the phase that first needs them.
 | Redis                      | `src/common/redis.service.ts`  | always        | `REDIS_URL`               | ADR-3        |
 
 `*_REF` variables are references to a secret (a path or a secret-manager name),
-never the secret itself. The resolver is `[PLANNED]` for CP4.
+never the secret itself. CP1 adds the `KeyProvider` for `FIELD_ENCRYPTION_KEY_REF`
+(`dev://`/`test://` outside production, `env://VAR` anywhere). The KMS/secret-manager
+adapter is `[PLANNED]` until OD-8 decides hosting, and is required before the
+safety plan or journals hold real data in production. The FCM/SendGrid/SMS
+resolvers remain `[PLANNED]` for Phase 8.
 
 ## AI providers
 

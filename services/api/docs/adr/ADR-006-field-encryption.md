@@ -1,6 +1,6 @@
 # ADR-006: Application-level AES-256-GCM for sensitive free text
 
-- Status: Accepted (2026-10-24); implementation deferred to CP4
+- Status: Accepted (2026-10-24); `KeyProvider` and AES-256-GCM helpers built in CP1; journal text and rotation job in CP4
 - Deciders: backend owner
 - Related: database.md, REQ-JOURN-02, REQ-PLAN-01
 
@@ -35,3 +35,8 @@ that can `SELECT` a column.
   crisis path does not encrypt synchronously if it would break the 2-second
   budget: it encrypts the stored entry before/while persisting, and the decision
   itself never waits on the cipher.
+- CP1 builds the `KeyProvider` interface, the local development provider and the
+  AES-256-GCM helpers, and uses them for safety-plan fields 1–5. The therapist
+  licence number uses the same helpers in CP3 and journal text in CP4. Key
+  rotation and the re-encryption job stay in CP4–CP5; until then every row
+  records the current `key_id`.

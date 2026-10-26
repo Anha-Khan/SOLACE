@@ -5,10 +5,11 @@ and safety decision: crisis detection, alert state, therapist access, consent an
 privacy operations. The Flutter client is untrusted and never decides a tier or a
 state.
 
-Current status: **Wave A / Phase 0–2**. The service boots, validates its
-configuration, exposes `/health` and `/ready`, ships the full data model with
-database-enforced append-only tables, the alert and connection state machines, an
-OpenAPI v0.1 contract, and the Phase 0 documentation. Business endpoints are
+Current status: **CP1 implemented** (after Wave A / Phase 0–2). The service boots,
+validates its configuration, and exposes the CP1 surface: auth and sessions, consent
+with append-only history and two-step withdrawal, PHQ-9 surveys with server-side
+scoring, the encrypted safety plan, devices and notification preferences. Crisis
+detection, therapist connections, journals, tasks and escalation timers are still
 contract-only and `[PLANNED]`.
 
 ## Requirements
@@ -41,18 +42,27 @@ curl http://localhost:3000/ready
 Both return the standard envelope. `/ready` returns 503 when PostgreSQL or Redis
 is unreachable.
 
+The seed creates two synthetic accounts, both with the development-only password
+`between-dev-password-not-real`:
+
+- `patient@example.invalid` — patient with the standard PHQ-9, one completed result,
+  six consent records and `journalPrivacy=full_access` so it can exercise withdrawal.
+- `therapist@example.invalid` — therapist, used by later checkpoints.
+
+These are fixtures, never credentials for a real deployment.
+
 ## Commands
 
-| Command                           | Purpose                                           |
-| --------------------------------- | ------------------------------------------------- |
-| `npm run start:dev`               | Run from TypeScript                               |
-| `npm run build` / `npm start`     | Compile to `dist/` and run it                     |
-| `npm test`                        | Unit + integration tests (needs the Docker stack) |
-| `npm run typecheck`               | `tsc --noEmit`                                    |
-| `npm run lint` / `npm run format` | ESLint / Prettier                                 |
-| `npm run contract:lint`           | Spectral on `openapi.yaml` (must be zero errors)  |
-| `npm run db:migrate`              | Create and apply a migration (development)        |
-| `npm run db:deploy`               | Apply committed migrations (staging/production)   |
+| Command                           | Purpose                                                      |
+| --------------------------------- | ------------------------------------------------------------ |
+| `npm run start:dev`               | Run from TypeScript                                          |
+| `npm run build` / `npm start`     | Compile to `dist/` and run it                                |
+| `npm test`                        | Unit + integration + contract tests (needs the Docker stack) |
+| `npm run typecheck`               | `tsc --noEmit`                                               |
+| `npm run lint` / `npm run format` | ESLint / Prettier                                            |
+| `npm run contract:lint`           | Spectral on `openapi.yaml` (must be zero errors)             |
+| `npm run db:migrate`              | Create and apply a migration (development)                   |
+| `npm run db:deploy`               | Apply committed migrations (staging/production)              |
 
 ## Configuration
 
@@ -81,10 +91,15 @@ src/
                      request id, validation pipe, filter, interceptor, factories
   modules/
     health/          /health, /ready
+    auth/            signup, login, refresh rotation, sessions, guards
+    consent/         items, append-only history, two-step withdrawal
+    surveys/         PHQ-9 definitions, scoring, results, retake cooldown
+    safety-plan/     AES-256-GCM fields, sharing flag, field-4 exclusion
+    notifications/   device tokens, derived notification preferences
     crisis/          alert state machine (pure)
     therapist/       connection state machine (pure)
 prisma/              schema, migrations, seed
-test/                unit, integration
+test/                unit, integration, contract (Ajv against openapi.yaml)
 docs/                architecture, requirements, database, integrations,
                      ADRs, runbooks
 openapi.yaml         the client contract (v0.1 candidate)
